@@ -1,0 +1,16 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/broad-phase-test
+broad-phase-test.so
+broad-phase-test.dylib
+broad-phase-test.dll
+broad-phase-test.a
+broad-phase-test.lib
+broad-phase-test-test-*
+*.exe
+*.pdb
+*.o
+*.obj
+*.lst

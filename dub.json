@@ -1,0 +1,12 @@
+{
+	"authors": [
+		"aaa"
+	],
+	"copyright": "Copyright © 2026, aaa",
+	"dependencies": {},
+	"description": "A minimal D application.",
+	"license": "proprietary",
+	"name": "broad-phase-test",
+	"targetPath": "./bin",
+	"libs": ["./lib/SDL3", "bcrypt"]
+}
