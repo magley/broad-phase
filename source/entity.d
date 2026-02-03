@@ -1,16 +1,19 @@
 module entity;
 
 import rect;
+import std.uuid;
 import vector;
 import vendor.sdl;
 
 class Entity
 {
+    size_t id;
     vec2 pos;
     vec2 size;
 
     this(vec2 pos, vec2 size)
     {
+        this.id = randomUUID().toHash();
         this.pos = pos;
         this.size = size;
     }

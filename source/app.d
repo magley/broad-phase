@@ -1,5 +1,6 @@
 import collision;
 import entity;
+import input;
 import rect;
 import std.datetime.StopWatch;
 import std.format;
@@ -18,7 +19,7 @@ void main()
 	bool running = true;
 
 	Entity[] entities;
-	int N = 800;
+	int N = 2000;
 
 	entities = null;
 	entities.reserve(N);
@@ -31,11 +32,14 @@ void main()
 	}
 
 	Collision collision = new Collision();
+
 	StopWatch sw;
+	Input input;
 	sw.start();
 
 	while (running)
 	{
+		// Events
 		SDL_Event ev;
 		while (SDL_PollEvent(&ev))
 		{
@@ -43,18 +47,30 @@ void main()
 			{
 				running = false;
 			}
+			else if (ev.type == SDL_EVENT_MOUSE_WHEEL)
+			{
+				input.wheel = ev.wheel.y;
+			}
 		}
+		SDL_SetRenderDrawColorFloat(rend, 0.36, 0.36, 0.38, 1.0);
+		SDL_RenderClear(rend);
 
-		sw.reset();
+		input.update();
+
+		if (input.key_press(SDL_SCANCODE_0))
+			collision.type = Collision.Type.None;
+		if (input.key_press(SDL_SCANCODE_1))
+			collision.type = Collision.Type.Naive;
+		if (input.key_press(SDL_SCANCODE_2))
+			collision.type = Collision.Type.GridHash;
 
 		// Update
-		CollisionResult[] cld_result = collision.update(entities);
-
+		sw.reset();
+		CollisionResult[] cld_result = collision.update(entities, rend);
 		long exec_ms = sw.peek().total!"msecs"();
 
 		// Render
-		SDL_SetRenderDrawColorFloat(rend, 0.36, 0.36, 0.38, 1.0);
-		SDL_RenderClear(rend);
+
 		foreach (Entity e; entities)
 		{
 			e.draw(rend);
