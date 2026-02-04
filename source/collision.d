@@ -3,6 +3,11 @@ module collision;
 import entity;
 import rect;
 import std.algorithm;
+import std.algorithm.sorting;
+import std.array;
+import std.datetime.stopwatch;
+import std.stdio;
+import std.string;
 import std.typecons;
 import vector;
 import vendor.sdl;
@@ -19,9 +24,10 @@ class Collision
         None,
         Naive,
         GridHash,
+        SortAndSweep,
     }
 
-    Type type = Type.Naive;
+    Type type = Type.None;
 
     CollisionResult[] update(Entity[] e, SDL_Renderer* rend)
     {
@@ -33,6 +39,8 @@ class Collision
             return update_naive(e, rend);
         case GridHash:
             return update_grid_hash(e, rend);
+        case SortAndSweep:
+            return update_sort_and_sweep(e, rend);
         }
     }
 
@@ -123,6 +131,67 @@ class Collision
         for (float y = 0 - cell.y; y <= 600 + cell.y; y += cell.y)
         {
             SDL_RenderLine(rend, -100, y, 800 + 100, y);
+        }
+
+        return result;
+    }
+
+    private CollisionResult[] update_sort_and_sweep(Entity[] entities, SDL_Renderer* rend)
+    {
+        CollisionResult[] result;
+
+        struct SweepPoint
+        {
+            float val;
+            size_t index;
+            bool isMini;
+        }
+
+        SweepPoint[] points;
+
+        // Sort
+
+        reserve(points, entities.length * 2);
+        foreach (size_t i, Entity e; entities)
+        {
+            points ~= SweepPoint(e.bbox.left, i, true);
+            points ~= SweepPoint(e.bbox.right, i, false);
+        }
+        points = sort!"a.val < b.val"(points).array();
+
+        // Sweep
+
+        size_t[] set;
+        foreach (ref SweepPoint p; points)
+        {
+            if (p.isMini)
+            {
+                foreach (size_t eIndex; set)
+                {
+                    Entity e1 = entities[p.index];
+                    Entity e2 = entities[eIndex];
+
+                    if (e1.intersect(e2))
+                    {
+                        result ~= CollisionResult(e1, e2);
+                    }
+                }
+
+                set ~= p.index;
+            }
+            else
+            {
+                int i = 0;
+                for (int j = 0; j < set.length; j++)
+                {
+                    if (set[j] == p.index)
+                    {
+                        i = j;
+                        break;
+                    }
+                }
+                set = set[0 .. i] ~ set[i + 1 .. $];
+            }
         }
 
         return result;

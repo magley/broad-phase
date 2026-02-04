@@ -2,7 +2,7 @@ import collision;
 import entity;
 import input;
 import rect;
-import std.datetime.StopWatch;
+import std.datetime.stopwatch;
 import std.format;
 import std.random;
 import std.stdio;
@@ -19,7 +19,7 @@ void main()
 	bool running = true;
 
 	Entity[] entities;
-	int N = 2000;
+	int N = 5000;
 
 	entities = null;
 	entities.reserve(N);
@@ -63,6 +63,8 @@ void main()
 			collision.type = Collision.Type.Naive;
 		if (input.key_press(SDL_SCANCODE_2))
 			collision.type = Collision.Type.GridHash;
+		if (input.key_press(SDL_SCANCODE_3))
+			collision.type = Collision.Type.SortAndSweep;
 
 		// Update
 		sw.reset();
@@ -79,7 +81,8 @@ void main()
 
 		long fps = cast(long)(1000.0 / exec_ms);
 		SDL_SetWindowTitle(win,
-			format("entities: %d, collisions: %d, fps: %03d, latency: %dms, ",
+			format("type: %s, entities: %d, collisions: %d, fps: %03d, latency: %dms, ",
+				collision.type,
 				entities.length,
 				cld_result.length,
 				fps,
