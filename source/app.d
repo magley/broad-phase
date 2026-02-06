@@ -15,11 +15,12 @@ void main()
 	SDL_Init(SDL_INIT_VIDEO);
 	SDL_Window* win = SDL_CreateWindow("Broad Phase Collision", 800, 600, SDL_WINDOW_OPENGL);
 	SDL_Renderer* rend = SDL_CreateRenderer(win, null);
+	SDL_SetRenderDrawBlendMode(rend, SDL_BLENDMODE_BLEND);
 
 	bool running = true;
 
 	Entity[] entities;
-	int N = 5000;
+	int N = 1000;
 
 	entities = null;
 	entities.reserve(N);
@@ -65,11 +66,8 @@ void main()
 			collision.type = Collision.Type.GridHash;
 		if (input.key_press(SDL_SCANCODE_3))
 			collision.type = Collision.Type.SortAndSweep;
-
-		// Update
-		sw.reset();
-		CollisionResult[] cld_result = collision.update(entities, rend);
-		long exec_ms = sw.peek().total!"msecs"();
+		if (input.key_press(SDL_SCANCODE_4))
+			collision.type = Collision.Type.QuadTree;
 
 		// Render
 
@@ -77,6 +75,12 @@ void main()
 		{
 			e.draw(rend);
 		}
+
+		// Update
+		sw.reset();
+		CollisionResult[] cld_result = collision.update(entities, rend);
+		long exec_ms = sw.peek().total!"msecs"();
+
 		SDL_RenderPresent(rend);
 
 		long fps = cast(long)(1000.0 / exec_ms);
