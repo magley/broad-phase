@@ -26,6 +26,7 @@ class Collision
         GridHash,
         SortAndSweep,
         QuadTree,
+        RTree,
     }
 
     Type type = Type.None;
@@ -44,6 +45,8 @@ class Collision
             return update_sort_and_sweep(e, rend);
         case QuadTree:
             return update_quad_tree(e, rend);
+        case RTree:
+            return update_r_tree(e, rend);
         }
     }
 
@@ -347,6 +350,84 @@ class Collision
                         result ~= CollisionResult(e1, e2);
                     }
                 }
+            }
+        }
+
+        return result;
+    }
+
+    private CollisionResult[] update_r_tree(Entity[] entities, SDL_Renderer* rend)
+    {
+        CollisionResult[] result;
+
+        const size_t B = 50;
+
+        struct RNode
+        {
+            RNode*[B] child;
+            RNode* parent = null;
+            box2 area;
+            size_t[] items;
+
+            bool is_leaf() const => child[0] == null;
+
+            this(box2 area)
+            {
+                foreach (RNode* n; child)
+                    n = null;
+                items = [];
+                this.area = area;
+            }
+
+            void insert(size_t id)
+            {
+                if (is_leaf)
+                {
+                    items ~= id;
+                    if (items.length > B)
+                    {
+                        handle_overflow();
+                    }
+                }
+                else
+                {
+                    RNode* n = find(id);
+                    assert(n !is null);
+                    n.insert(id);
+                }
+            }
+
+            RNode* find(size_t id)
+            {
+                const box2 bbox = entities[id].bbox();
+
+                RNode* best = null;
+                box2 best_rect;
+
+                foreach (RNode* n; child)
+                {
+                    const box2 rect = n.area.expand_to_contain(bbox);
+
+                    if (best == null ||
+                        rect.perimiter < best_rect.perimiter ||
+                        (rect.perimiter == best_rect.perimiter && rect.area < best_rect.area))
+                    {
+                        best = n;
+                        best_rect = rect;
+                    }
+                }
+
+                return best;
+            }
+
+            private void handle_overflow()
+            {
+                /*
+                split items into nodes a, b
+                make a and b children...
+    
+                */
+
             }
         }
 

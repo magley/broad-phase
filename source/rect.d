@@ -1,5 +1,6 @@
 module rect;
 
+import std.algorithm;
 import std.format;
 import std.math;
 import vector;
@@ -37,6 +38,8 @@ struct box2
     vec2 size() const => dr - ul + vec2(1, 1);
     float w() const => size().x;
     float h() const => size().y;
+    float area() const => w * h;
+    float perimiter() const => 2 * (w + h);
 
     vec2 dl() const => vec2(left, bottom);
     vec2 ur() const => vec2(right, top);
@@ -179,6 +182,22 @@ struct box2
     box2 shifted(vec2 amount) const
     {
         return box2.uldr(ul + amount, dr + amount);
+    }
+
+    box2 expand_to_contain(vec2 point) const
+    {
+        return box2.uldr(
+            vec2(min(left, point.x), min(top, point.y)),
+            vec2(max(right, point.x), max(bottom, point.y))
+        );
+    }
+
+    box2 expand_to_contain(box2 rect) const
+    {
+        return box2.uldr(
+            vec2(min(left, rect.left), min(top, rect.top)),
+            vec2(max(right, rect.right), max(bottom, rect.bottom))
+        );
     }
 
     string toString() const
