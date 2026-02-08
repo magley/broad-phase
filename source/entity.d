@@ -28,7 +28,7 @@ class Entity
         rect.w = size.x;
         rect.h = size.y;
 
-        SDL_SetRenderDrawColorFloat(rend, 1, 1, 1, 1);
+        SDL_SetRenderDrawColorFloat(rend, 0, 0, 0, 1);
         SDL_RenderRect(rend, &rect);
     }
 

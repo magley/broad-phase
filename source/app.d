@@ -20,7 +20,7 @@ void main()
 	bool running = true;
 
 	Entity[] entities;
-	int N = 1000;
+	int N = 60;
 
 	entities = null;
 	entities.reserve(N);
@@ -53,7 +53,7 @@ void main()
 				input.wheel = ev.wheel.y;
 			}
 		}
-		SDL_SetRenderDrawColorFloat(rend, 0.36, 0.36, 0.38, 1.0);
+		SDL_SetRenderDrawColorFloat(rend, 1, 1, 1, 1.0);
 		SDL_RenderClear(rend);
 
 		input.update();
@@ -68,6 +68,8 @@ void main()
 			collision.type = Collision.Type.SortAndSweep;
 		if (input.key_press(SDL_SCANCODE_4))
 			collision.type = Collision.Type.QuadTree;
+		if (input.key_press(SDL_SCANCODE_5))
+			collision.type = Collision.Type.RTree;
 
 		// Render
 

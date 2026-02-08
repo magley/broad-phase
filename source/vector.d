@@ -101,6 +101,11 @@ struct vec2
         return sqrt(x * x + y * y);
     }
 
+    float magnitudeSq() const
+    {
+        return x * x + y * y;
+    }
+
     vec2 rotated(float ang_degrees) const
     {
         float cs = cos(ang_degrees * PI / 180.0f);
