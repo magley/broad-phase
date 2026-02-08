@@ -1,11 +1,13 @@
 module collision;
 
 import entity;
+import input;
 import rect;
 import std.algorithm;
 import std.algorithm.sorting;
 import std.array;
 import std.datetime.stopwatch;
+import std.math;
 import std.stdio;
 import std.string;
 import std.typecons;
@@ -30,6 +32,12 @@ class Collision
     }
 
     Type type = Type.None;
+    Input* input;
+
+    this(Input* input)
+    {
+        this.input = input;
+    }
 
     CollisionResult[] update(Entity[] e, SDL_Renderer* rend)
     {
@@ -360,8 +368,15 @@ class Collision
     {
         CollisionResult[] result;
 
-        const size_t B = 20;
+        const size_t B = 50;
         const size_t Bmin = cast(int)(0.4 * B);
+
+        static int subtype = 0;
+
+        if (input.key_press(SDL_SCANCODE_Q))
+        {
+            subtype = (subtype + 1) % 3;
+        }
 
         class RNode
         {
@@ -442,7 +457,13 @@ class Collision
 
             private void handle_overflow()
             {
-                SplitResult t = split_linear();
+                SplitResult t;
+                if (subtype == 0)
+                    t = split_classic(true);
+                if (subtype == 1)
+                    t = split_classic(false);
+                if (subtype == 2)
+                    t = split_sortapprox();
 
                 size_t[] items1 = t.items1;
                 box2 mbr1 = t.bbox1;
@@ -488,34 +509,62 @@ class Collision
                 box2 bbox2;
             }
 
-            private SplitResult split_linear()
+            private SplitResult split_classic(bool linear = false)
             {
                 // Find two furthest bboxes
 
                 size_t[] items1, items2;
                 box2 bbox1, bbox2;
-                float max_dist = 0;
 
-                for (int i = 0; i < items.length; i++)
+                if (linear)
                 {
-                    box2 b1 = entities[items[i]].bbox;
-                    for (int j = i + 1; j < items.length; j++)
+                    float maxdist = 0;
+                    for (int i = 0; i < items.length; i++)
                     {
-                        box2 b2 = entities[items[j]].bbox;
-                        float dist = (b1.center - b2.center).magnitudeSq();
-
-                        if (max_dist == 0 || dist > max_dist)
+                        const box2 b1 = entities[items[i]].bbox;
+                        for (int j = i + 1; j < items.length; j++)
                         {
-                            max_dist = dist;
-                            bbox1 = b1;
-                            bbox2 = b2;
-                            items1 = [items[i]];
-                            items2 = [items[j]];
+                            const box2 b2 = entities[items[j]].bbox;
+                            const float distx = b1.dist_x(b2);
+                            const float disty = b1.dist_y(b2);
+                            const float dist = max(distx, disty);
+
+                            if (dist >= maxdist)
+                            {
+                                maxdist = dist;
+                                bbox1 = b1;
+                                bbox2 = b2;
+                                items1 = [items[i]];
+                                items2 = [items[j]];
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    float max_waste = 0;
+
+                    for (int i = 0; i < items.length; i++)
+                    {
+                        const box2 b1 = entities[items[i]].bbox;
+                        for (int j = i + 1; j < items.length; j++)
+                        {
+                            const box2 b2 = entities[items[j]].bbox;
+                            const float waste = b1.expand_to_contain(b2).area - (b1.area + b2.area);
+
+                            if (waste >= max_waste)
+                            {
+                                max_waste = waste;
+                                bbox1 = b1;
+                                bbox2 = b2;
+                                items1 = [items[i]];
+                                items2 = [items[j]];
+                            }
                         }
                     }
                 }
 
-                // For other boxes, greedily pick.
+                // For other boxes, greedily pick based on increase in area.
 
                 size_t p1 = items1[0];
                 size_t p2 = items2[0];
@@ -528,7 +577,8 @@ class Collision
 
                     box2 bbox1_ex = bbox1.expand_to_contain(b);
                     box2 bbox2_ex = bbox2.expand_to_contain(b);
-                    if (bbox1_ex.perimiter < bbox2_ex.perimiter)
+
+                    if ((bbox1_ex.area - bbox1.area) < (bbox2_ex.area - bbox2.area))
                     {
                         items1 ~= i;
                         bbox1 = bbox1_ex;
@@ -539,6 +589,19 @@ class Collision
                         bbox2 = bbox2_ex;
                     }
                 }
+
+                box2 compute_mbr(size_t[] group)
+                {
+                    box2 bbox = entities[group[0]].bbox;
+                    foreach (size_t id; group[1 .. $])
+                    {
+                        bbox = bbox.expand_to_contain(entities[id].bbox);
+                    }
+                    return bbox;
+                }
+
+                bbox1 = compute_mbr(items1);
+                bbox2 = compute_mbr(items2);
 
                 return SplitResult(items1, bbox1, items2, bbox2);
             }
@@ -566,7 +629,7 @@ class Collision
                 box2 bestmbr1, bestmbr2;
                 float best_perimiter = -1;
 
-                for (int i = Bmin; i < N - Bmin; i++)
+                for (size_t i = Bmin; i < N - Bmin; i++)
                 {
                     size_t[] set1 = sorted[0 .. i];
                     box2 mbr1 = mbr_containing_entities(set1);

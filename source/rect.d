@@ -204,4 +204,14 @@ struct box2
     {
         return format("box2(pos=%s, size=%s)", ul.toString(), size().toString());
     }
+
+    float dist_x(box2 rect) const
+    {
+        return min(abs(left - rect.right), abs(right - rect.left));
+    }
+
+    float dist_y(box2 rect) const
+    {
+        return min(abs(top - rect.bottom), abs(bottom - rect.top));
+    }
 }

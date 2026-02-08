@@ -20,7 +20,7 @@ void main()
 	bool running = true;
 
 	Entity[] entities;
-	int N = 60;
+	int N = 1000;
 
 	entities = null;
 	entities.reserve(N);
@@ -32,10 +32,10 @@ void main()
 		);
 	}
 
-	Collision collision = new Collision();
+	Input input;
+	Collision collision = new Collision(&input);
 
 	StopWatch sw;
-	Input input;
 	sw.start();
 
 	while (running)
