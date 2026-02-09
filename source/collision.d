@@ -423,15 +423,23 @@ class Collision
             /// Find all items which are candidates for intersection with `bbox`.
             size_t[] query(const box2 bbox)
             {
+                size_t[] result;
                 if (is_leaf && bbox.intersect_inc(bounds))
                 {
-                    return items;
+                    foreach (size_t item; items)
+                    {
+                        if (entities[item].bbox.intersect_inc(bbox))
+                        {
+                            result ~= item;
+                        }
+                    }
                 }
-
-                size_t[] result;
-                foreach (RNode child; children)
+                else
                 {
-                    result ~= child.query(bbox);
+                    foreach (RNode child; children)
+                    {
+                        result ~= child.query(bbox);
+                    }
                 }
                 return result;
             }
