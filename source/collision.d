@@ -368,7 +368,7 @@ class Collision
     {
         CollisionResult[] result;
 
-        const size_t B = 50;
+        const size_t B = 10;
         const size_t Bmin = cast(int)(0.4 * B);
 
         static int subtype = 0;
@@ -432,7 +432,7 @@ class Collision
                 }
             }
 
-            RNode find(size_t id)
+            private RNode find(size_t id)
             {
                 const box2 bbox = entities[id].bbox();
 
@@ -453,6 +453,45 @@ class Collision
                 }
 
                 return best;
+            }
+
+            size_t[][] get_buckets()
+            {
+                if (is_leaf)
+                {
+                    return [items];
+                }
+                else
+                {
+                    size_t[][] result;
+                    foreach (RNode c; child)
+                    {
+                        result ~= c.get_buckets();
+                    }
+
+                    return result;
+                }
+            }
+
+            size_t[] query(size_t i)
+            {
+                size_t[] result;
+
+                if (is_leaf)
+                {
+                    result ~= items;
+                }
+                else
+                {
+                    box2 rect = entities[i].bbox;
+                    foreach (RNode c; child)
+                    {
+                        if (!rect.intersect_inc(c.area))
+                            continue;
+                        result ~= c.query(i);
+                    }
+                }
+                return result;
             }
 
             private void handle_overflow()
@@ -660,6 +699,43 @@ class Collision
         }
         rtree = rtree.get_root();
         rtree.draw();
+
+        for (size_t i = 0; i < entities.length; i++)
+        {
+            foreach (size_t j; rtree.query(i))
+            {
+                if (i >= j)
+                    continue;
+
+                Entity e1 = entities[i];
+                Entity e2 = entities[j];
+
+                if (e1.intersect(e2))
+                {
+                    result ~= CollisionResult(e1, e2);
+                }
+            }
+        }
+
+        // ulong l = result.length;
+        // result = [];
+        // foreach (size_t[] bucket; rtree.get_buckets())
+        // {
+        //     for (int i = 0; i < bucket.length; i++)
+        //     {
+        //         for (int j = i + 1; j < bucket.length; j++)
+        //         {
+        //             Entity e1 = entities[bucket[i]];
+        //             Entity e2 = entities[bucket[j]];
+
+        //             if (e1.intersect(e2))
+        //             {
+        //                 result ~= CollisionResult(e1, e2);
+        //             }
+        //         }
+        //     }
+        // }
+        // writeln(l - result.length);
 
         return result;
     }

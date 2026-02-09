@@ -20,7 +20,7 @@ void main()
 	bool running = true;
 
 	Entity[] entities;
-	int N = 1000;
+	int N = 50;
 
 	entities = null;
 	entities.reserve(N);
@@ -82,6 +82,28 @@ void main()
 		sw.reset();
 		CollisionResult[] cld_result = collision.update(entities, rend);
 		long exec_ms = sw.peek().total!"msecs"();
+
+		foreach (size_t i, ref CollisionResult res; cld_result)
+		{
+			float r = res.e1.bbox.left / 800.0f;
+			float g = res.e2.bbox.top / 600.0f;
+			float b = (res.e1.bbox.w + res.e2.bbox.h) / 64.0f;
+
+			SDL_SetRenderDrawColorFloat(rend, r, g, b, 0.1);
+
+			SDL_FRect rect;
+			rect.x = res.e1.bbox.x;
+			rect.y = res.e1.bbox.y;
+			rect.w = res.e1.bbox.w;
+			rect.h = res.e1.bbox.h;
+			SDL_RenderFillRect(rend, &rect);
+			SDL_FRect rect2;
+			rect2.x = res.e2.bbox.x;
+			rect2.y = res.e2.bbox.y;
+			rect2.w = res.e2.bbox.w;
+			rect2.h = res.e2.bbox.h;
+			SDL_RenderFillRect(rend, &rect2);
+		}
 
 		SDL_RenderPresent(rend);
 
