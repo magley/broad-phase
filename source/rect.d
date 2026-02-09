@@ -214,4 +214,16 @@ struct box2
     {
         return min(abs(top - rect.bottom), abs(bottom - rect.top));
     }
+
+    import vendor.sdl;
+
+    SDL_FRect sdlrect() const
+    {
+        SDL_FRect res;
+        res.x = x;
+        res.y = y;
+        res.w = w;
+        res.h = h;
+        return res;
+    }
 }

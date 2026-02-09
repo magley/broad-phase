@@ -368,179 +368,122 @@ class Collision
     {
         CollisionResult[] result;
 
-        const size_t B = 10;
-        const size_t Bmin = cast(int)(0.4 * B);
-
-        static int subtype = 0;
-
-        if (input.key_press(SDL_SCANCODE_Q))
-        {
-            subtype = (subtype + 1) % 3;
-        }
+        const size_t B = 100;
 
         class RNode
         {
-            RNode[] child;
-            RNode parent = null;
-            box2 area;
+            box2 bounds;
+            RNode[] children;
+            RNode parent;
             size_t[] items;
 
-            bool is_leaf() const => child.length == 0;
+            bool is_leaf() const => children.length == 0;
             bool is_root() const => parent is null;
+
+            this(box2 bounds)
+            {
+                this.bounds = bounds;
+            }
 
             RNode get_root() const
             {
-                if (is_root)
-                    return cast(RNode) this;
-                return parent.get_root();
+                RNode n = cast(RNode) this;
+                while (!n.is_root())
+                    n = n.parent;
+                return n;
             }
 
-            void draw()
+            void draw() const
             {
-                SDL_FRect rect = SDL_FRect(area.x, area.y, area.w, area.h);
-                SDL_SetRenderDrawColorFloat(rend, 1.0, 0.0, 0.0, 1.0);
+                SDL_SetRenderDrawColorFloat(rend, 1, 0, 0, 1);
+                SDL_FRect rect = bounds.sdlrect();
                 SDL_RenderRect(rend, &rect);
-                foreach (RNode c; child)
-                {
-                    c.draw();
-                }
+                foreach (const(RNode) child; children)
+                    child.draw();
             }
 
-            this(box2 area)
+            void insert(size_t item)
             {
-                child = [];
-                items = [];
-                this.area = area;
-            }
+                const box2 bbox = entities[item].bbox();
+                RNode node = choose_leaf(bbox);
+                node.items ~= item;
 
-            void insert(size_t id)
-            {
-                if (is_leaf())
+                const bool overflow = node.items.length > B;
+
+                if (!overflow)
                 {
-                    items ~= id;
-                    if (items.length > B)
-                    {
-                        handle_overflow();
-                    }
+                    node.update_bounds(true);
                 }
                 else
                 {
-                    RNode n = find(id);
-                    assert(n !is null);
-                    n.insert(id);
-                    area = area.expand_to_contain(entities[id].bbox());
+                    node.handle_overflow();
                 }
             }
 
-            private RNode find(size_t id)
+            /// Find all items which are candidates for intersection with `bbox`.
+            size_t[] query(const box2 bbox)
             {
-                const box2 bbox = entities[id].bbox();
-
-                RNode best = null;
-                box2 best_rect;
-
-                foreach (RNode n; child)
+                if (is_leaf && bbox.intersect_inc(bounds))
                 {
-                    const box2 rect = n.area.expand_to_contain(bbox);
-
-                    if (best is null ||
-                        rect.perimiter < best_rect.perimiter ||
-                        (rect.perimiter == best_rect.perimiter && rect.area < best_rect.area))
-                    {
-                        best = n;
-                        best_rect = rect;
-                    }
+                    return items;
                 }
 
-                return best;
-            }
-
-            size_t[][] get_buckets()
-            {
-                if (is_leaf)
-                {
-                    return [items];
-                }
-                else
-                {
-                    size_t[][] result;
-                    foreach (RNode c; child)
-                    {
-                        result ~= c.get_buckets();
-                    }
-
-                    return result;
-                }
-            }
-
-            size_t[] query(size_t i)
-            {
                 size_t[] result;
-
-                if (is_leaf)
+                foreach (RNode child; children)
                 {
-                    result ~= items;
-                }
-                else
-                {
-                    box2 rect = entities[i].bbox;
-                    foreach (RNode c; child)
-                    {
-                        if (!rect.intersect_inc(c.area))
-                            continue;
-                        result ~= c.query(i);
-                    }
+                    result ~= child.query(bbox);
                 }
                 return result;
             }
 
-            private void handle_overflow()
+            /// Update bounding boxes of this node (and parent nodes if recursion is set to `true`).
+            private void update_bounds(bool recurse_up)
             {
-                SplitResult t;
-                if (subtype == 0)
-                    t = split_classic(true);
-                if (subtype == 1)
-                    t = split_classic(false);
-                if (subtype == 2)
-                    t = split_sortapprox();
-
-                size_t[] items1 = t.items1;
-                box2 mbr1 = t.bbox1;
-                size_t[] items2 = t.items2;
-                box2 mbr2 = t.bbox2;
-
-                this.area = mbr1;
-                this.items = items1;
-                RNode newnode = new RNode(mbr2);
-                newnode.items = items2;
-
-                if (is_root())
+                if (is_leaf && items.length > 0)
                 {
-                    RNode newroot = new RNode(mbr1.expand_to_contain(mbr2));
-
-                    RNode[] nodes = [cast(RNode) this, newnode];
-                    foreach (RNode n; nodes)
-                    {
-                        n.parent = newroot;
-                        newroot.child ~= n;
-                    }
+                    bounds = entities[items[0]].bbox;
+                    foreach (size_t item; items[1 .. $])
+                        bounds = bounds.expand_to_contain(entities[item].bbox);
                 }
-                else
+                else if (!is_leaf && children.length > 0)
                 {
-                    RNode[] nodes = [newnode]; // `this` is redundant
-                    foreach (RNode n; nodes)
-                    {
-                        n.parent = parent;
-                        parent.child ~= n;
-                    }
-                    if (parent.child.length > B)
-                    {
-                        parent.handle_overflow();
-                    }
+                    bounds = children[0].bounds;
+                    foreach (RNode child; children[1 .. $])
+                        bounds = bounds.expand_to_contain(child.bounds);
                 }
+                if (recurse_up && !is_root)
+                    parent.update_bounds(true);
             }
 
-            struct SplitResult
+            /// Sect leaf node with least enlargement to include bbox.
+            /// Params:
+            ///   bbox = Bounding box of the object to insert into the tree.
+            /// Returns: The best leaf node.
+            private RNode choose_leaf(const box2 bbox)
+            {
+                if (is_leaf)
+                    return this;
+
+                double best_perimiter = double.max;
+                double best_area = double.max;
+                RNode best_child = null;
+                foreach (RNode child; children)
+                {
+                    const box2 expanded = child.bounds.expand_to_contain(bbox);
+                    const float perimiter = expanded.perimiter;
+                    const float area = expanded.area;
+                    if (perimiter < best_perimiter || (perimiter == best_perimiter && area < best_area))
+                    {
+                        best_perimiter = perimiter;
+                        best_child = child;
+                        best_area = area;
+                    }
+                }
+
+                return best_child.choose_leaf(bbox);
+            }
+
+            private struct SplitResult
             {
                 size_t[] items1;
                 box2 bbox1;
@@ -548,69 +491,84 @@ class Collision
                 box2 bbox2;
             }
 
-            private SplitResult split_classic(bool linear = false)
+            private void handle_overflow()
             {
-                // Find two furthest bboxes
+                SplitResult t = build_split_linear();
 
-                size_t[] items1, items2;
-                box2 bbox1, bbox2;
+                this.bounds = t.bbox1;
+                this.items = t.items1;
 
-                if (linear)
+                RNode newnode = new RNode(t.bbox2);
+                newnode.items = t.items2;
+
+                if (is_root)
                 {
-                    float maxdist = 0;
-                    for (int i = 0; i < items.length; i++)
-                    {
-                        const box2 b1 = entities[items[i]].bbox;
-                        for (int j = i + 1; j < items.length; j++)
-                        {
-                            const box2 b2 = entities[items[j]].bbox;
-                            const float distx = b1.dist_x(b2);
-                            const float disty = b1.dist_y(b2);
-                            const float dist = max(distx, disty);
+                    RNode newroot = new RNode(bounds.expand_to_contain(newnode.bounds));
 
-                            if (dist >= maxdist)
-                            {
-                                maxdist = dist;
-                                bbox1 = b1;
-                                bbox2 = b2;
-                                items1 = [items[i]];
-                                items2 = [items[j]];
-                            }
-                        }
-                    }
+                    this.parent = newroot;
+                    newnode.parent = newroot;
+                    newroot.children ~= [this, newnode];
                 }
                 else
                 {
-                    float max_waste = 0;
+                    newnode.parent = parent;
+                    parent.children ~= [newnode];
+                }
 
-                    for (int i = 0; i < items.length; i++)
+                this.update_bounds(true);
+                newnode.update_bounds(true);
+
+                if (parent.children.length > B)
+                {
+                    parent.handle_overflow();
+                }
+            }
+
+            /// Split overflown items into two sets in linear time.
+            /// Returns: A SplitResult which can be used to construct new `RNode`.
+            private SplitResult build_split_linear() const
+            {
+                float maxdist = int.min;
+                size_t pivot1, pivot2;
+                for (int i = 0; i < items.length; i++)
+                {
+                    const box2 b1 = entities[items[i]].bbox;
+                    for (int j = i + 1; j < items.length; j++)
                     {
-                        const box2 b1 = entities[items[i]].bbox;
-                        for (int j = i + 1; j < items.length; j++)
-                        {
-                            const box2 b2 = entities[items[j]].bbox;
-                            const float waste = b1.expand_to_contain(b2).area - (b1.area + b2.area);
+                        const box2 b2 = entities[items[j]].bbox;
 
-                            if (waste >= max_waste)
-                            {
-                                max_waste = waste;
-                                bbox1 = b1;
-                                bbox2 = b2;
-                                items1 = [items[i]];
-                                items2 = [items[j]];
-                            }
+                        const float distx = b1.dist_x(b2);
+                        const float disty = b1.dist_y(b2);
+                        const float dist = max(distx, disty);
+
+                        if (dist > maxdist)
+                        {
+                            maxdist = dist;
+                            pivot1 = items[i];
+                            pivot2 = items[j];
                         }
                     }
                 }
 
-                // For other boxes, greedily pick based on increase in area.
+                return build_split_from(pivot1, pivot2);
+            }
 
-                size_t p1 = items1[0];
-                size_t p2 = items2[0];
+            /// Given the two pivot items, split `items` into two sets to minimize
+            /// area expansion of each set.
+            /// Params:
+            ///   pivot1 = First item.
+            ///   pivot2 = Second item.
+            /// Returns: A `SplitResult` used in a split method.
+            private SplitResult build_split_from(size_t pivot1, size_t pivot2) const
+            {
+                box2 bbox1 = entities[pivot1].bbox;
+                box2 bbox2 = entities[pivot2].bbox;
+                size_t[] items1 = [pivot1];
+                size_t[] items2 = [pivot2];
 
                 foreach (size_t i; items)
                 {
-                    if (i == p1 || i == p2)
+                    if (i == pivot1 || i == pivot2)
                         continue;
                     box2 b = entities[i].bbox;
 
@@ -629,65 +587,7 @@ class Collision
                     }
                 }
 
-                box2 compute_mbr(size_t[] group)
-                {
-                    box2 bbox = entities[group[0]].bbox;
-                    foreach (size_t id; group[1 .. $])
-                    {
-                        bbox = bbox.expand_to_contain(entities[id].bbox);
-                    }
-                    return bbox;
-                }
-
-                bbox1 = compute_mbr(items1);
-                bbox2 = compute_mbr(items2);
-
                 return SplitResult(items1, bbox1, items2, bbox2);
-            }
-
-            private SplitResult split_sortapprox()
-            {
-                // https://www.cse.cuhk.edu.hk/~taoyf/course/infs4205/lec/rtree.pdf
-
-                // Sort all items.
-
-                bool less(size_t a, size_t b) => entities[a].bbox.left < entities[b].bbox.left;
-                size_t[] sorted = sort!less(items).array;
-                const size_t N = items.length;
-                box2 mbr_containing_entities(size_t[] arr)
-                {
-                    box2 bbox;
-                    foreach (size_t item; arr)
-                        bbox = bbox.expand_to_contain(entities[item].bbox);
-                    return bbox;
-                }
-
-                // Sliding window, use one with smallest perimiter sum.
-
-                size_t[] best1, best2;
-                box2 bestmbr1, bestmbr2;
-                float best_perimiter = -1;
-
-                for (size_t i = Bmin; i < N - Bmin; i++)
-                {
-                    size_t[] set1 = sorted[0 .. i];
-                    box2 mbr1 = mbr_containing_entities(set1);
-
-                    size_t[] set2 = sorted[i .. N];
-                    box2 mbr2 = mbr_containing_entities(set2);
-
-                    float perimiter = mbr1.perimiter + mbr2.perimiter;
-                    if (best_perimiter == -1 || (perimiter < best_perimiter))
-                    {
-                        best_perimiter = perimiter;
-                        best1 = set1;
-                        best2 = set2;
-                        bestmbr1 = mbr1;
-                        bestmbr2 = mbr2;
-                    }
-                }
-
-                return SplitResult(best1, bestmbr1, best2, bestmbr2);
             }
         }
 
@@ -702,40 +602,19 @@ class Collision
 
         for (size_t i = 0; i < entities.length; i++)
         {
-            foreach (size_t j; rtree.query(i))
+            Entity e1 = entities[i];
+            const box2 bbox1 = e1.bbox;
+            foreach (size_t j; rtree.query(bbox1))
             {
                 if (i >= j)
                     continue;
-
-                Entity e1 = entities[i];
                 Entity e2 = entities[j];
-
                 if (e1.intersect(e2))
                 {
                     result ~= CollisionResult(e1, e2);
                 }
             }
         }
-
-        // ulong l = result.length;
-        // result = [];
-        // foreach (size_t[] bucket; rtree.get_buckets())
-        // {
-        //     for (int i = 0; i < bucket.length; i++)
-        //     {
-        //         for (int j = i + 1; j < bucket.length; j++)
-        //         {
-        //             Entity e1 = entities[bucket[i]];
-        //             Entity e2 = entities[bucket[j]];
-
-        //             if (e1.intersect(e2))
-        //             {
-        //                 result ~= CollisionResult(e1, e2);
-        //             }
-        //         }
-        //     }
-        // }
-        // writeln(l - result.length);
 
         return result;
     }

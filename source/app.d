@@ -20,7 +20,7 @@ void main()
 	bool running = true;
 
 	Entity[] entities;
-	int N = 50;
+	int N = 1000;
 
 	entities = null;
 	entities.reserve(N);
