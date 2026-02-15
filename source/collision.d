@@ -1,5 +1,6 @@
 module collision;
 
+import core.stdc.limits;
 import entity;
 import input;
 import rect;
@@ -536,38 +537,86 @@ class Collision
             /// Returns: A SplitResult which can be used to construct new `RNode`.
             private SplitResult build_split_linear() const
             {
-                float maxdist = int.min;
-                size_t pivot1, pivot2;
-                for (int i = 0; i < items.length; i++)
+                float mini = float.infinity;
+                float maxi = -float.infinity;
+                size_t mini_id = items[0];
+                size_t maxi_id = items[1];
+                float best_dist = 0;
+                size_t[2] best_id = [0, 0];
+
+                for (int d = 0; d < 2; d++)
                 {
-                    const box2 b1 = entities[items[i]].bbox;
-                    for (int j = i + 1; j < items.length; j++)
+                    foreach (size_t id; items)
                     {
-                        const box2 b2 = entities[items[j]].bbox;
+                        box2 bbox = entities[id].bbox;
+                        float mini_i = d == 0 ? bbox.left : bbox.top;
+                        float maxi_i = d == 0 ? bbox.right : bbox.bottom;
 
-                        const float distx = b1.dist_x(b2);
-                        const float disty = b1.dist_y(b2);
-                        const float dist = max(distx, disty);
-
-                        if (dist > maxdist)
+                        if (mini_i < mini)
                         {
-                            maxdist = dist;
-                            pivot1 = items[i];
-                            pivot2 = items[j];
+                            mini = mini_i;
+                            mini_id = id;
                         }
+                        if (maxi_i > maxi)
+                        {
+                            maxi = maxi_i;
+                            maxi_id = id;
+                        }
+                    }
+
+                    float dist = maxi - mini;
+                    if (dist > best_dist)
+                    {
+                        best_dist = dist;
+                        best_id[0] = mini_id;
+                        best_id[1] = maxi_id;
                     }
                 }
 
-                return build_split_from(pivot1, pivot2);
+                return build_split_from(best_id[0], best_id[1], &cmp_smaller_mbr_enlargement);
+
+                // float maxdist = int.min;
+                // size_t pivot1, pivot2;
+
+                // for (int i = 0; i < items.length; i++)
+                // {
+                //     const box2 b1 = entities[items[i]].bbox;
+                //     for (int j = i + 1; j < items.length; j++)
+                //     {
+                //         const box2 b2 = entities[items[j]].bbox;
+
+                //         const float distx = b1.dist_x(b2);
+                //         const float disty = b1.dist_y(b2);
+                //         const float dist = max(distx, disty);
+
+                //         if (dist > maxdist)
+                //         {
+                //             maxdist = dist;
+                //             pivot1 = items[i];
+                //             pivot2 = items[j];
+                //         }
+                //     }
+                // }
+
+                // return build_split_from(pivot1, pivot2);
             }
 
-            /// Given the two pivot items, split `items` into two sets to minimize
-            /// area expansion of each set.
+            alias SplitRedistMetric = bool delegate(box2, box2, box2);
+
+            private bool cmp_smaller_mbr_enlargement(box2 pivot1, box2 pivot2, box2 obj) const
+            {
+                box2 exp1 = pivot1.expand_to_contain(obj);
+                box2 exp2 = pivot2.expand_to_contain(obj);
+                return (exp1.area - pivot1.area) < (exp2.area - pivot2.area);
+            }
+
+            /// Given the two pivot items, split `items` based on the comparison function
             /// Params:
             ///   pivot1 = First item.
             ///   pivot2 = Second item.
+            ///   cmp = The comparison function.
             /// Returns: A `SplitResult` used in a split method.
-            private SplitResult build_split_from(size_t pivot1, size_t pivot2) const
+            private SplitResult build_split_from(size_t pivot1, size_t pivot2, SplitRedistMetric cmp) const
             {
                 box2 bbox1 = entities[pivot1].bbox;
                 box2 bbox2 = entities[pivot2].bbox;
@@ -580,18 +629,15 @@ class Collision
                         continue;
                     box2 b = entities[i].bbox;
 
-                    box2 bbox1_ex = bbox1.expand_to_contain(b);
-                    box2 bbox2_ex = bbox2.expand_to_contain(b);
-
-                    if ((bbox1_ex.area - bbox1.area) < (bbox2_ex.area - bbox2.area))
+                    if (cmp(bbox1, bbox2, b))
                     {
                         items1 ~= i;
-                        bbox1 = bbox1_ex;
+                        bbox1 = bbox1.expand_to_contain(b);
                     }
                     else
                     {
                         items2 ~= i;
-                        bbox2 = bbox2_ex;
+                        bbox2 = bbox2.expand_to_contain(b);
                     }
                 }
 
@@ -601,7 +647,10 @@ class Collision
 
         RNode rtree = new RNode(entities[0].bbox);
 
-        foreach (size_t index, Entity e; entities)
+        bool less(Entity e1, Entity e2) => e1.bbox.left < e2.bbox.left;
+        //auto sorted = ;
+
+        foreach (size_t index, Entity e; sort!less(entities).array)
         {
             rtree.insert(index);
         }
