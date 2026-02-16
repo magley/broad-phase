@@ -1,0 +1,49 @@
+module impl.naive;
+
+import collision;
+import entity;
+import rect;
+import std.algorithm.sorting;
+import std.array;
+import std.typecons;
+import vector;
+import vendor.sdl;
+
+class Naive
+{
+    // -------------------------- Input 
+    private Entity[] entities;
+    private SDL_Renderer* rend;
+    // -------------------------- Result
+    private CollisionResult[] result;
+
+    this(Entity[] entities, SDL_Renderer* rend)
+    {
+        this.entities = entities;
+        this.rend = rend;
+    }
+
+    CollisionResult[] get()
+    {
+        result = [];
+        build_result();
+        return result;
+    }
+
+    private void build_result()
+    {
+        for (int i = 0; i < entities.length; i++)
+        {
+            for (int j = i + 1; j < entities.length; j++)
+            {
+                Entity e1 = entities[i];
+                Entity e2 = entities[j];
+
+                if (e1.intersect(e2))
+                {
+                    result ~= CollisionResult(e1, e2);
+                }
+            }
+        }
+    }
+}
