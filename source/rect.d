@@ -226,4 +226,15 @@ struct box2
         res.h = h;
         return res;
     }
+
+    box2 intersection(box2 rect) const
+    {
+        if (!intersect_inc(rect))
+            return box2.pos_sz(vec2(), vec2());
+
+        return box2.uldr(
+            vec2(max(left, rect.left), max(top, rect.top)),
+            vec2(min(right, rect.right), min(bottom, rect.bottom))
+        );
+    }
 }

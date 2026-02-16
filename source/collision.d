@@ -378,6 +378,8 @@ class Collision
             RNode parent;
             size_t[] items;
 
+            private bool reinserted = false;
+
             bool is_leaf() const => children.length == 0;
             bool is_root() const => parent is null;
 
@@ -406,7 +408,7 @@ class Collision
             void insert(size_t item)
             {
                 const box2 bbox = entities[item].bbox();
-                RNode node = choose_leaf(bbox);
+                RNode node = choose_leaf_star(bbox);
                 node.items ~= item;
 
                 const bool overflow = node.items.length > B;
@@ -417,7 +419,7 @@ class Collision
                 }
                 else
                 {
-                    node.handle_overflow();
+                    node.handle_overflow_star();
                 }
             }
 
@@ -473,8 +475,8 @@ class Collision
                 if (is_leaf)
                     return this;
 
-                double best_perimiter = double.max;
-                double best_area = double.max;
+                float best_perimiter = float.max;
+                float best_area = float.max;
                 RNode best_child = null;
                 foreach (RNode child; children)
                 {
@@ -490,6 +492,73 @@ class Collision
                 }
 
                 return best_child.choose_leaf(bbox);
+            }
+
+            private RNode choose_leaf_star(const box2 bbox)
+            {
+                if (is_leaf)
+                    return this;
+
+                float best_overlap = float.max;
+                float best_area = float.max;
+                float best_perimiter = float.max;
+                RNode best_child = null;
+
+                /** 
+                 * 
+                 When inserting, the R*-tree uses a combined strategy. For leaf
+                 nodes, overlap is minimized, while for inner nodes, enlargement
+                 and area are minimized.
+                 */
+
+                foreach (RNode child; children)
+                {
+                    const box2 expanded = child.bounds.expand_to_contain(bbox);
+
+                    const float perimiter = expanded.perimiter - child.bounds.perimiter;
+                    const float area = expanded.area - child.bounds.area;
+                    const float overlap = compute_overlap(child, children, bbox);
+                    if (child.is_leaf)
+                    {
+                        if (overlap < best_overlap)
+                        {
+                            best_overlap = overlap;
+                            best_perimiter = perimiter;
+                            best_area = area;
+                            best_child = child;
+                        }
+                    }
+                    else
+                    {
+                        if (perimiter < best_perimiter || area < best_area)
+                        {
+                            best_overlap = overlap;
+                            best_perimiter = perimiter;
+                            best_area = area;
+                            best_child = child;
+                        }
+                    }
+                }
+
+                return best_child.choose_leaf(bbox);
+            }
+
+            private float compute_overlap(const RNode child, const RNode[] siblings, box2 bbox) const
+            {
+                float overlap = 0.0;
+
+                const box2 before = child.bounds;
+                const box2 after = child.bounds.expand_to_contain(bbox);
+
+                foreach (const RNode sibling; siblings)
+                {
+                    if (sibling == child)
+                        continue;
+                    const box2 o = sibling.bounds;
+                    overlap += after.intersection(o).area - before.intersection(o).area;
+                }
+
+                return overlap;
             }
 
             private struct SplitResult
@@ -533,6 +602,49 @@ class Collision
                 }
             }
 
+            private void handle_overflow_star()
+            {
+                if (!reinserted)
+                {
+                    const float percentage = 30.0 / 100.0;
+                    const int K = cast(int)(percentage * items.length);
+
+                    auto t = pick_k_furthest(K);
+                    const size_t[] to_reinsert = t[0];
+                    items = t[1];
+
+                    reinserted = true;
+
+                    RNode root = get_root();
+                    foreach (size_t item; to_reinsert)
+                    {
+                        root.insert(item);
+                    }
+
+                    reinserted = false;
+                }
+
+                const bool overflow = items.length > B;
+                if (overflow)
+                {
+                    handle_overflow();
+                }
+            }
+
+            private Tuple!(size_t[], size_t[]) pick_k_furthest(int k)
+            {
+                bool func(size_t i, size_t j)
+                {
+                    vec2 c = bounds.center;
+                    vec2 dA = c - entities[i].bbox.center;
+                    vec2 dB = c - entities[j].bbox.center;
+                    return dA.magnitudeSq > dB.magnitudeSq;
+                }
+
+                size_t[] res = sort!(func)(items).array;
+                return tuple(res[0 .. k], res[k .. $]);
+            }
+
             /// Split overflown items into two sets in linear time.
             /// Returns: A SplitResult which can be used to construct new `RNode`.
             private SplitResult build_split_linear() const
@@ -574,31 +686,6 @@ class Collision
                 }
 
                 return build_split_from(best_id[0], best_id[1], &cmp_smaller_mbr_enlargement);
-
-                // float maxdist = int.min;
-                // size_t pivot1, pivot2;
-
-                // for (int i = 0; i < items.length; i++)
-                // {
-                //     const box2 b1 = entities[items[i]].bbox;
-                //     for (int j = i + 1; j < items.length; j++)
-                //     {
-                //         const box2 b2 = entities[items[j]].bbox;
-
-                //         const float distx = b1.dist_x(b2);
-                //         const float disty = b1.dist_y(b2);
-                //         const float dist = max(distx, disty);
-
-                //         if (dist > maxdist)
-                //         {
-                //             maxdist = dist;
-                //             pivot1 = items[i];
-                //             pivot2 = items[j];
-                //         }
-                //     }
-                // }
-
-                // return build_split_from(pivot1, pivot2);
             }
 
             alias SplitRedistMetric = bool delegate(box2, box2, box2);
@@ -657,21 +744,21 @@ class Collision
         rtree = rtree.get_root();
         rtree.draw();
 
-        for (size_t i = 0; i < entities.length; i++)
-        {
-            Entity e1 = entities[i];
-            const box2 bbox1 = e1.bbox;
-            foreach (size_t j; rtree.query(bbox1))
-            {
-                if (i >= j)
-                    continue;
-                Entity e2 = entities[j];
-                if (e1.intersect(e2))
-                {
-                    result ~= CollisionResult(e1, e2);
-                }
-            }
-        }
+        // for (size_t i = 0; i < entities.length; i++)
+        // {
+        //     Entity e1 = entities[i];
+        //     const box2 bbox1 = e1.bbox;
+        //     foreach (size_t j; rtree.query(bbox1))
+        //     {
+        //         if (i >= j)
+        //             continue;
+        //         Entity e2 = entities[j];
+        //         if (e1.intersect(e2))
+        //         {
+        //             result ~= CollisionResult(e1, e2);
+        //         }
+        //     }
+        // }
 
         return result;
     }
