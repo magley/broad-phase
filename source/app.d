@@ -70,6 +70,8 @@ void main()
 			collision.type = Collision.Type.QuadTree;
 		if (input.key_press(SDL_SCANCODE_5))
 			collision.type = Collision.Type.RTree;
+		if (input.key_press(SDL_SCANCODE_6))
+			collision.type = Collision.Type.BulkRTree_X;
 
 		// Render
 
