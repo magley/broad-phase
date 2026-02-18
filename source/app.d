@@ -20,7 +20,7 @@ void main()
 	bool running = true;
 
 	Entity[] entities;
-	int N = 1000;
+	int N = 2000;
 
 	entities = null;
 	entities.reserve(N);
@@ -28,7 +28,7 @@ void main()
 	{
 		entities ~= new Entity(
 			vec2(uniform!"[]"(0, 800 - 64), uniform!"[]"(0, 600 - 64)),
-			vec2(uniform!"[]"(16, 48), uniform!"[]"(16, 48)),
+			vec2(uniform!"[]"(12, 16), uniform!"[]"(12, 16)),
 		);
 	}
 
@@ -72,6 +72,8 @@ void main()
 			collision.type = Collision.Type.RTree;
 		if (input.key_press(SDL_SCANCODE_6))
 			collision.type = Collision.Type.BulkRTree_X;
+		if (input.key_press(SDL_SCANCODE_7))
+			collision.type = Collision.Type.BulkRTree_STR;
 
 		// Render
 

@@ -18,16 +18,24 @@ class BulkRTree
     private Entity[] entities;
     private SDL_Renderer* rend;
     private int capacity;
+    private Type type;
     // -------------------------- State
     private BulkRNode root = null;
     // -------------------------- Result
     private CollisionResult[] result;
 
-    this(Entity[] entities, SDL_Renderer* rend, int capacity)
+    enum Type
+    {
+        SortX,
+        SortTileRecursive,
+    }
+
+    this(Entity[] entities, SDL_Renderer* rend, int capacity, Type type)
     {
         this.entities = entities;
         this.rend = rend;
         this.capacity = capacity;
+        this.type = type;
     }
 
     CollisionResult[] get()
@@ -39,7 +47,16 @@ class BulkRTree
         for (size_t i = 0; i < entities.length; i++)
             indexlist ~= i;
 
-        build_nearest_x(indexlist);
+        final switch (type) with (Type)
+        {
+        case SortX:
+            build_nearest_x(indexlist);
+            break;
+        case SortTileRecursive:
+            build_str(indexlist);
+            break;
+        }
+
         build_result();
         draw();
 
@@ -120,6 +137,85 @@ class BulkRTree
 
         root = level[0];
     }
+
+    private void build_str(size_t[] list)
+    {
+        bool cx(size_t i, size_t j) => entities[i].bbox.center.x < entities[j].bbox.center.x;
+        bool cy(size_t i, size_t j) => entities[i].bbox.center.y < entities[j].bbox.center.y;
+        list = sort!(cx)(list).array();
+
+        {
+            const int slice_size = cast(int) ceil(sqrt(cast(double) list.length / capacity));
+            size_t[] list_sorty;
+            for (int i = 0; i < list.length; i += slice_size)
+            {
+                int l = i;
+                int r = min(i + slice_size, list.length);
+
+                size_t[] slice = list[l .. r];
+                slice = sort!(cy)(slice).array();
+                list_sorty ~= slice;
+            }
+            list = list_sorty;
+        }
+
+        BulkRNode[] level;
+        for (int i = 0; i < list.length; i += capacity)
+        {
+            int l = i;
+            int r = min(i + capacity, list.length);
+
+            BulkRNode n = new BulkRNode(entities, rend);
+            n.items = list[l .. r];
+            n.update_bounds();
+
+            level ~= n;
+        }
+
+        while (level.length > 1)
+        {
+            // Sort by x [not needed, centroids of disjoint groups of N sorted points are sorted themselves]
+
+            // Slice and sort by y
+            {
+                const int slice_size = cast(int) ceil(sqrt(cast(double) level.length / capacity));
+                BulkRNode[] level_sorty;
+                for (int i = 0; i < level.length; i += slice_size)
+                {
+                    int l = i;
+                    int r = min(i + slice_size, level.length);
+
+                    BulkRNode[] slice = level[l .. r];
+                    slice = sort!"a.bounds.center.y < b.bounds.center.y"(slice).array();
+                    level_sorty ~= slice;
+                }
+                level = level_sorty;
+            }
+
+            // Build next level
+            {
+                BulkRNode[] newlevel;
+                for (int i = 0; i < level.length; i += capacity)
+                {
+                    int l = i;
+                    int r = min(i + capacity, level.length);
+
+                    BulkRNode n = new BulkRNode(entities, rend);
+                    for (int j = l; j < r; j++)
+                    {
+                        n.children ~= level[j];
+                        level[j].parent = n;
+                    }
+                    n.update_bounds();
+
+                    newlevel ~= n;
+                }
+                level = newlevel;
+            }
+        }
+
+        root = level[0];
+    }
 }
 
 class BulkRNode
@@ -162,7 +258,7 @@ class BulkRNode
 
     private void draw()
     {
-        SDL_SetRenderDrawColorFloat(rend, 1, 0, 0, 1);
+        SDL_SetRenderDrawColorFloat(rend, 1, 0, 0, 1.0);
         SDL_FRect rect = bounds.sdlrect();
         SDL_RenderRect(rend, &rect);
         foreach (BulkRNode child; children)

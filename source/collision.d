@@ -31,6 +31,7 @@ class Collision
         QuadTree,
         RTree,
         BulkRTree_X,
+        BulkRTree_STR,
     }
 
     Type type = Type.None;
@@ -59,6 +60,8 @@ class Collision
             return update_r_tree(e, rend);
         case BulkRTree_X:
             return update_bulk_r_tree_x(e, rend);
+        case BulkRTree_STR:
+            return update_bulk_r_tree_str(e, rend);
         }
     }
 
@@ -111,8 +114,15 @@ class Collision
     {
         import impl.bulk_r_tree;
 
-        BulkRTree rt = new BulkRTree(entities, rend, 100);
+        BulkRTree rt = new BulkRTree(entities, rend, 8, BulkRTree.Type.SortX);
         return rt.get();
     }
 
+    private CollisionResult[] update_bulk_r_tree_str(Entity[] entities, SDL_Renderer* rend)
+    {
+        import impl.bulk_r_tree;
+
+        BulkRTree rt = new BulkRTree(entities, rend, 8, BulkRTree.Type.SortTileRecursive);
+        return rt.get();
+    }
 }
