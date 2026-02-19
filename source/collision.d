@@ -134,7 +134,7 @@ class Collision
         import impl.bulk_r_tree;
 
         BulkRTree rt = new BulkRTree(entities, rend, 8, BulkRTree.Type.Hilbert);
-        rt.hilbert_bits = 24;
+        rt.hilbert_bits = 8;
         return rt.get();
     }
 }

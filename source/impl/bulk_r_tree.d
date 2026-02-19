@@ -225,10 +225,42 @@ class BulkRTree
     private void build_hilbert(size_t[] list)
     {
         int n_bits = hilbert_bits;
+
+        // Coordinates must be scaled to [0 ... 2^(n_bits)].
+        vec2 mini = entities[0].bbox.center;
+        vec2 maxi = entities[0].bbox.center;
+        foreach (Entity e; entities)
+        {
+            vec2 c = e.bbox.center;
+            mini.x = min(mini.x, c.x);
+            maxi.x = max(maxi.x, c.x);
+            mini.y = min(mini.y, c.y);
+            maxi.y = max(maxi.y, c.y);
+        }
+
+        float to_range(float x, float l1, float l2, float r1, float r2)
+        {
+            x -= l1;
+            x /= (l2 - l1);
+            x *= (r2 - r1);
+            x += r1;
+            return x;
+        }
+
         bool cmp(size_t i, size_t j)
         {
-            ulong h_i = hilbert_value(entities[i].bbox.center, n_bits);
-            ulong h_j = hilbert_value(entities[j].bbox.center, n_bits);
+            vec2 c_i = entities[i].bbox.center;
+            vec2 c_j = entities[j].bbox.center;
+            float bitspan = cast(float)(1 << n_bits);
+
+            c_i.x = to_range(c_i.x, mini.x, maxi.x, 0, bitspan);
+            c_i.y = to_range(c_i.y, mini.y, maxi.y, 0, bitspan);
+
+            c_j.x = to_range(c_j.x, mini.x, maxi.x, 0, bitspan);
+            c_j.y = to_range(c_j.y, mini.y, maxi.y, 0, bitspan);
+
+            ulong h_i = hilbert_value(c_i, n_bits);
+            ulong h_j = hilbert_value(c_j, n_bits);
             return h_i < h_j;
         }
 
@@ -280,6 +312,8 @@ class BulkRTree
         root = level[0];
     }
 
+    /// Compute the Hilbert value of a 2D point with a precision of `n_bits`.
+    /// It's assumed that the coordinates `p` are in the range `[0 ... 2^(n_bits)]`.
     private ulong hilbert_value(vec2 p, int n_bits)
     {
         ulong mask = 1 << (n_bits - 1);
@@ -310,7 +344,6 @@ class BulkRTree
 
         return index;
     }
-
 }
 
 class BulkRNode
