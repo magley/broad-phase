@@ -21,6 +21,7 @@ class BulkRTree
     private Type type;
     // -------------------------- State
     private BulkRNode root = null;
+    int hilbert_bits = 16;
     // -------------------------- Result
     private CollisionResult[] result;
 
@@ -28,6 +29,7 @@ class BulkRTree
     {
         SortX,
         SortTileRecursive,
+        Hilbert,
     }
 
     this(Entity[] entities, SDL_Renderer* rend, int capacity, Type type)
@@ -54,6 +56,9 @@ class BulkRTree
             break;
         case SortTileRecursive:
             build_str(indexlist);
+            break;
+        case Hilbert:
+            build_hilbert(indexlist);
             break;
         }
 
@@ -216,6 +221,96 @@ class BulkRTree
 
         root = level[0];
     }
+
+    private void build_hilbert(size_t[] list)
+    {
+        int n_bits = hilbert_bits;
+        bool cmp(size_t i, size_t j)
+        {
+            ulong h_i = hilbert_value(entities[i].bbox.center, n_bits);
+            ulong h_j = hilbert_value(entities[j].bbox.center, n_bits);
+            return h_i < h_j;
+        }
+
+        list = sort!(cmp)(list).array();
+
+        BulkRNode[] level;
+        int cap = capacity;
+
+        // Leaf layer
+        for (int i = 0; i < list.length; i += cap)
+        {
+            const size_t l = i;
+            const size_t r = min(list.length, l + cap);
+
+            BulkRNode n = new BulkRNode(entities, rend);
+            n.items = list[i .. r];
+            n.update_bounds();
+            level ~= n;
+        }
+
+        // Internal layer
+        while (level.length > 1)
+        {
+            cap = cast(int) ceil(cast(double) level.length / cast(double) cap);
+            if (cap == 1)
+                cap = 2;
+
+            BulkRNode[] newlevel = [];
+
+            for (int i = 0; i < level.length; i += cap)
+            {
+                const size_t l = i;
+                const size_t r = min(level.length, l + cap);
+
+                BulkRNode n = new BulkRNode(entities, rend);
+                for (size_t j = l; j < r; j++)
+                {
+                    n.children ~= level[j];
+                    level[j].parent = n;
+                }
+                n.update_bounds();
+
+                newlevel ~= n;
+            }
+
+            level = newlevel;
+        }
+
+        root = level[0];
+    }
+
+    private ulong hilbert_value(vec2 p, int n_bits)
+    {
+        ulong mask = 1 << (n_bits - 1);
+
+        ulong x = cast(ulong) p.x;
+        ulong y = cast(ulong) p.y;
+
+        ulong index = 0;
+
+        for (int i = 0; i < n_bits; i++)
+        {
+            ulong rx = (x & mask) > 0;
+            ulong ry = (y & mask) > 0;
+            ulong quad = (rx << 1) ^ ry;
+            index = (index << 2) | quad;
+
+            if (ry == 0)
+            {
+                if (rx == 1)
+                {
+                    x = (1 << n_bits) - (1 + x);
+                    y = (1 << n_bits) - (1 + y);
+                }
+                swap(x, y);
+            }
+            mask >>= 1;
+        }
+
+        return index;
+    }
+
 }
 
 class BulkRNode

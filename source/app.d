@@ -74,6 +74,8 @@ void main()
 			collision.type = Collision.Type.BulkRTree_X;
 		if (input.key_press(SDL_SCANCODE_7))
 			collision.type = Collision.Type.BulkRTree_STR;
+		if (input.key_press(SDL_SCANCODE_8))
+			collision.type = Collision.Type.BulkRTree_Hilbert;
 
 		// Render
 
