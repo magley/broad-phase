@@ -100,9 +100,44 @@ class KDNode
         insert(items);
     }
 
-    void draw()
+    void draw(float xmin = -1000, float xmax = 1000, float ymin = -1000, float ymax = 1000, int thick = 6)
     {
+        void thick_orth_line(float x1, float y1, float x2, float y2, float thickness)
+        {
+            SDL_FRect r;
+            r.x = x1;
+            r.y = y1;
+            r.w = x2 - x1 + 1;
+            r.h = y2 - y1 + 1;
+            r.x -= thickness;
+            r.y -= thickness;
+            r.w += 2 * thickness;
+            r.h += 2 * thickness;
+            SDL_RenderFillRect(rend, &r);
+        }
 
+        if (axis == 0)
+        {
+            SDL_SetRenderDrawColorFloat(rend, 1.0, 0, 0, 1.0);
+            thick_orth_line(median, ymin, median, ymax, thick * 0.75);
+
+            if (!is_leaf())
+            {
+                children[0].draw(xmin, median, ymin, ymax, thick - 1);
+                children[1].draw(median, xmax, ymin, ymax, thick - 1);
+            }
+        }
+        else
+        {
+            SDL_SetRenderDrawColorFloat(rend, 0, 0.0, 1.0, 1.0);
+            thick_orth_line(xmin, median, xmax, median, thick * 0.75);
+
+            if (!is_leaf())
+            {
+                children[0].draw(xmin, xmax, ymin, median, thick - 1);
+                children[1].draw(xmin, xmax, median, ymax, thick - 1);
+            }
+        }
     }
 
     private void insert(size_t[] items)
