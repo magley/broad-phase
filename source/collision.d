@@ -33,6 +33,7 @@ class Collision
         BulkRTree_X,
         BulkRTree_STR,
         BulkRTree_Hilbert,
+        KDTree,
     }
 
     Type type = Type.None;
@@ -65,6 +66,8 @@ class Collision
             return update_bulk_r_tree_str(e, rend);
         case BulkRTree_Hilbert:
             return update_bulk_r_hilbert(e, rend);
+        case KDTree:
+            return update_k_d_tree(e, rend);
         }
     }
 
@@ -135,6 +138,14 @@ class Collision
 
         BulkRTree rt = new BulkRTree(entities, rend, 8, BulkRTree.Type.Hilbert);
         rt.hilbert_bits = 8;
+        return rt.get();
+    }
+
+    private CollisionResult[] update_k_d_tree(Entity[] entities, SDL_Renderer* rend)
+    {
+        import impl.k_d_tree;
+
+        KDTree rt = new KDTree(entities, rend, 64);
         return rt.get();
     }
 }
