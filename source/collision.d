@@ -2,6 +2,7 @@ module collision;
 
 import core.stdc.limits;
 import entity;
+import impl;
 import input;
 import rect;
 import std.algorithm;
@@ -22,130 +23,67 @@ struct CollisionResult
 
 class Collision
 {
-    enum Type
-    {
-        None,
-        Naive,
-        GridHash,
-        SortAndSweep,
-        QuadTree,
-        RTree,
-        BulkRTree_X,
-        BulkRTree_STR,
-        BulkRTree_Hilbert,
-        KDTree,
-    }
+    IBroadPhaseImplementation[string] strategies;
+    string[] strategy_names = [];
+    int strategy_index = 0;
 
-    Type type = Type.None;
+    Entity[] entities;
+    SDL_Renderer* rend;
     Input* input;
 
-    this(Input* input)
+    CollisionResult[] result;
+
+    this(Input* input, Entity[] entities, SDL_Renderer* rend)
     {
         this.input = input;
+        this.entities = entities;
+        this.rend = rend;
+        initialize();
     }
 
-    CollisionResult[] update(Entity[] e, SDL_Renderer* rend)
+    private void initialize()
     {
-        final switch (type) with (Type)
+        strategies["00 None"] = new NoneImpl();
+        strategies["01 Naive"] = new Naive(entities, rend);
+        strategies["02 Grid Hash"] = new GridHash(entities, rend, vec2(50, 50));
+        strategies["03 Sweep and Prune"] = new SweepAndPrune(entities, rend);
+        strategies["04 Quad tree"] = new QuadTree(entities, rend, box2.pos_sz(vec2(), vec2(800, 600)), 5);
+        strategies["05 R tree"] = new RTree(entities, rend, 100);
+        strategies["06 R tree (X-sort)"] = new BulkRTree(entities, rend, 8, BulkRTree.Type.SortX);
+        strategies["07 R tree (STR)"] = new BulkRTree(entities, rend, 8, BulkRTree
+                .Type.SortTileRecursive);
+        strategies["08 R tree (Hilbert)"] = new BulkRTree(entities, rend, 8, BulkRTree.Type.Hilbert);
+        strategies["09 K-d tree"] = new KDTree(entities, rend, 64);
+
+        strategy_names = strategies.keys;
+        sort(strategy_names);
+    }
+
+    void move(int delta_strategy)
+    {
+        strategy_index += delta_strategy;
+        if (strategy_index >= strategy_names.length)
         {
-        case None:
-            return update_none(e, rend);
-        case Naive:
-            return update_naive(e, rend);
-        case GridHash:
-            return update_grid_hash(e, rend);
-        case SortAndSweep:
-            return update_sort_and_sweep(e, rend);
-        case QuadTree:
-            return update_quad_tree(e, rend);
-        case RTree:
-            return update_r_tree(e, rend);
-        case BulkRTree_X:
-            return update_bulk_r_tree_x(e, rend);
-        case BulkRTree_STR:
-            return update_bulk_r_tree_str(e, rend);
-        case BulkRTree_Hilbert:
-            return update_bulk_r_hilbert(e, rend);
-        case KDTree:
-            return update_k_d_tree(e, rend);
+            strategy_index = 0;
+        }
+        if (strategy_index < 0)
+        {
+            strategy_index = cast(int) strategy_names.length - 1;
         }
     }
 
-    private CollisionResult[] update_none(Entity[] entities, SDL_Renderer* rend)
+    string strategy() => strategy_names[strategy_index];
+
+    void update()
     {
-        return [];
-    }
+        result = [];
 
-    private CollisionResult[] update_naive(Entity[] entities, SDL_Renderer* rend)
-    {
-        import impl.naive;
+        if (strategy !in strategies)
+        {
+            writeln("Unknown strategy " ~ strategy);
+            return;
+        }
 
-        Naive gh = new Naive(entities, rend);
-        return gh.get();
-    }
-
-    private CollisionResult[] update_grid_hash(Entity[] entities, SDL_Renderer* rend)
-    {
-        import impl.grid_hash;
-
-        GridHash gh = new GridHash(entities, rend, vec2(50, 50));
-        return gh.get();
-    }
-
-    private CollisionResult[] update_sort_and_sweep(Entity[] entities, SDL_Renderer* rend)
-    {
-        import impl.sweep_and_prune;
-
-        SweepAndPrune sp = new SweepAndPrune(entities, rend);
-        return sp.get();
-    }
-
-    private CollisionResult[] update_quad_tree(Entity[] entities, SDL_Renderer* rend)
-    {
-        import impl.quad_tree;
-
-        QuadTree qt = new QuadTree(entities, rend, box2.pos_sz(vec2(), vec2(800, 600)), 5);
-        return qt.get();
-    }
-
-    private CollisionResult[] update_r_tree(Entity[] entities, SDL_Renderer* rend)
-    {
-        import impl.r_tree;
-
-        RTree rt = new RTree(entities, rend, 100);
-        return rt.get();
-    }
-
-    private CollisionResult[] update_bulk_r_tree_x(Entity[] entities, SDL_Renderer* rend)
-    {
-        import impl.bulk_r_tree;
-
-        BulkRTree rt = new BulkRTree(entities, rend, 8, BulkRTree.Type.SortX);
-        return rt.get();
-    }
-
-    private CollisionResult[] update_bulk_r_tree_str(Entity[] entities, SDL_Renderer* rend)
-    {
-        import impl.bulk_r_tree;
-
-        BulkRTree rt = new BulkRTree(entities, rend, 8, BulkRTree.Type.SortTileRecursive);
-        return rt.get();
-    }
-
-    private CollisionResult[] update_bulk_r_hilbert(Entity[] entities, SDL_Renderer* rend)
-    {
-        import impl.bulk_r_tree;
-
-        BulkRTree rt = new BulkRTree(entities, rend, 8, BulkRTree.Type.Hilbert);
-        rt.hilbert_bits = 8;
-        return rt.get();
-    }
-
-    private CollisionResult[] update_k_d_tree(Entity[] entities, SDL_Renderer* rend)
-    {
-        import impl.k_d_tree;
-
-        KDTree rt = new KDTree(entities, rend, 64);
-        return rt.get();
+        result = strategies[strategy].get();
     }
 }

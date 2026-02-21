@@ -2,6 +2,7 @@ module impl.r_tree;
 
 import collision;
 import entity;
+import impl;
 import rect;
 import std.algorithm.sorting;
 import std.array;
@@ -9,7 +10,7 @@ import std.typecons;
 import vector;
 import vendor.sdl;
 
-class RTree
+class RTree : IBroadPhaseImplementation
 {
     // -------------------------- Input 
     private Entity[] entities;

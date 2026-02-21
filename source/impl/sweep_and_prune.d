@@ -2,6 +2,7 @@ module impl.sweep_and_prune;
 
 import collision;
 import entity;
+import impl;
 import rect;
 import std.algorithm.sorting;
 import std.array;
@@ -9,7 +10,7 @@ import std.typecons;
 import vector;
 import vendor.sdl;
 
-class SweepAndPrune
+class SweepAndPrune : IBroadPhaseImplementation
 {
     // -------------------------- Input 
     private Entity[] entities;

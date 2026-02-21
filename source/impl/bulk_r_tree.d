@@ -2,6 +2,7 @@ module impl.bulk_r_tree;
 
 import collision;
 import entity;
+import impl;
 import rect;
 import std.algorithm;
 import std.algorithm.iteration;
@@ -12,7 +13,7 @@ import std.typecons;
 import vector;
 import vendor.sdl;
 
-class BulkRTree
+class BulkRTree : IBroadPhaseImplementation
 {
     // -------------------------- Input 
     private Entity[] entities;

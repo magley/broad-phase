@@ -33,7 +33,7 @@ void main()
 	}
 
 	Input input;
-	Collision collision = new Collision(&input);
+	Collision collision = new Collision(&input, entities, rend);
 
 	StopWatch sw;
 	sw.start();
@@ -58,26 +58,11 @@ void main()
 
 		input.update();
 
-		if (input.key_press(SDL_SCANCODE_0))
-			collision.type = Collision.Type.None;
-		if (input.key_press(SDL_SCANCODE_1))
-			collision.type = Collision.Type.Naive;
-		if (input.key_press(SDL_SCANCODE_2))
-			collision.type = Collision.Type.GridHash;
-		if (input.key_press(SDL_SCANCODE_3))
-			collision.type = Collision.Type.SortAndSweep;
-		if (input.key_press(SDL_SCANCODE_4))
-			collision.type = Collision.Type.QuadTree;
-		if (input.key_press(SDL_SCANCODE_5))
-			collision.type = Collision.Type.RTree;
-		if (input.key_press(SDL_SCANCODE_6))
-			collision.type = Collision.Type.BulkRTree_X;
-		if (input.key_press(SDL_SCANCODE_7))
-			collision.type = Collision.Type.BulkRTree_STR;
-		if (input.key_press(SDL_SCANCODE_8))
-			collision.type = Collision.Type.BulkRTree_Hilbert;
-		if (input.key_press(SDL_SCANCODE_9))
-			collision.type = Collision.Type.KDTree;
+		int dx = input.key_axis_press(SDL_SCANCODE_Q, SDL_SCANCODE_W);
+		if (dx != 0)
+		{
+			collision.move(dx);
+		}
 
 		// Render
 
@@ -88,7 +73,8 @@ void main()
 
 		// Update
 		sw.reset();
-		CollisionResult[] cld_result = collision.update(entities, rend);
+		collision.update();
+		CollisionResult[] cld_result = collision.result;
 		long exec_ms = sw.peek().total!"msecs"();
 
 		foreach (size_t i, ref CollisionResult res; cld_result)
@@ -118,7 +104,7 @@ void main()
 		long fps = cast(long)(1000.0 / exec_ms);
 		SDL_SetWindowTitle(win,
 			format("type: %s, entities: %d, collisions: %d, fps: %03d, latency: %dms, ",
-				collision.type,
+				collision.strategy(),
 				entities.length,
 				cld_result.length,
 				fps,

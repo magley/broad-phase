@@ -2,12 +2,13 @@ module impl.grid_hash;
 
 import collision;
 import entity;
+import impl;
 import rect;
 import std.typecons;
 import vector;
 import vendor.sdl;
 
-class GridHash
+class GridHash : IBroadPhaseImplementation
 {
     // -------------------------- Input 
     private Entity[] entities;

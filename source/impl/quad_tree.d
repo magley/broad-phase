@@ -2,12 +2,13 @@ module impl.quad_tree;
 
 import collision;
 import entity;
+import impl;
 import rect;
 import std.typecons;
 import vector;
 import vendor.sdl;
 
-class QuadTree
+class QuadTree : IBroadPhaseImplementation
 {
     // -------------------------- Input 
     private Entity[] entities;

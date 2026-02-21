@@ -2,6 +2,7 @@ module impl.k_d_tree;
 
 import collision;
 import entity;
+import impl;
 import rect;
 import std.algorithm;
 import std.algorithm.sorting;
@@ -10,7 +11,7 @@ import std.typecons;
 import vector;
 import vendor.sdl;
 
-class KDTree
+class KDTree : IBroadPhaseImplementation
 {
     // -------------------------- Input 
     private Entity[] entities;
