@@ -18,12 +18,15 @@ class GridHash : IBroadPhaseImplementation
     private Entity[][ulong] buckets;
     // -------------------------- Result
     private CollisionResult[] result;
+    private PerfMeasure perf_measure;
+    PerfMeasure get_performance() => perf_measure;
 
     this(Entity[] entities, SDL_Renderer* rend, vec2 cell_size)
     {
         this.entities = entities;
         this.rend = rend;
         this.cell = cell_size;
+        this.perf_measure = new PerfMeasure();
     }
 
     CollisionResult[] get()
@@ -31,9 +34,13 @@ class GridHash : IBroadPhaseImplementation
         buckets = null;
         result = [];
 
+        perf_measure.start("build_space");
         build_buckets();
+        perf_measure.start("build_result");
         build_result();
+        perf_measure.start("draw");
         draw();
+        perf_measure.end();
 
         return result;
     }

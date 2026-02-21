@@ -17,17 +17,22 @@ class Naive : IBroadPhaseImplementation
     private SDL_Renderer* rend;
     // -------------------------- Result
     private CollisionResult[] result;
+    private PerfMeasure perf_measure;
+    PerfMeasure get_performance() => perf_measure;
 
     this(Entity[] entities, SDL_Renderer* rend)
     {
         this.entities = entities;
         this.rend = rend;
+        this.perf_measure = new PerfMeasure();
     }
 
     CollisionResult[] get()
     {
         result = [];
+        perf_measure.start("build_result");
         build_result();
+        perf_measure.end();
         return result;
     }
 

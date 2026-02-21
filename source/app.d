@@ -1,5 +1,6 @@
 import collision;
 import entity;
+import impl;
 import input;
 import rect;
 import std.datetime.stopwatch;
@@ -9,6 +10,45 @@ import std.stdio;
 import std.string;
 import vector;
 import vendor.sdl;
+
+class Benchmark
+{
+	PerfMeasure[][string] measures;
+
+	void push(string strategy, PerfMeasure measure)
+	{
+		measures[strategy] ~= measure;
+	}
+
+	string to_json()
+	{
+		import std.json;
+
+		JSONValue j;
+
+		foreach (string strategy, _; measures)
+		{
+			j[strategy] = JSONValue.emptyArray;
+		}
+
+		foreach (string strategy, PerfMeasure[] mli; measures)
+		{
+			JSONValue[] li;
+			foreach (PerfMeasure frame; mli)
+			{
+				JSONValue obj;
+				foreach (string task, ulong time; frame.data)
+				{
+					obj[task] = time;
+				}
+				li ~= obj;
+			}
+			j[strategy] ~= li;
+		}
+
+		return j.toString();
+	}
+}
 
 void main()
 {
@@ -34,6 +74,7 @@ void main()
 
 	Input input;
 	Collision collision = new Collision(&input, entities, rend);
+	Benchmark benchmark = new Benchmark();
 
 	StopWatch sw;
 	sw.start();
@@ -75,6 +116,9 @@ void main()
 		sw.reset();
 		collision.update();
 		CollisionResult[] cld_result = collision.result;
+
+		benchmark.push(collision.strategy, collision.get_performance_measure());
+
 		long exec_ms = sw.peek().total!"msecs"();
 
 		foreach (size_t i, ref CollisionResult res; cld_result)
@@ -111,6 +155,12 @@ void main()
 				exec_ms
 		).toStringz
 		);
+	}
+
+	{
+		import std.file;
+
+		std.file.write("./result.json", benchmark.to_json());
 	}
 
 	SDL_DestroyRenderer(rend);

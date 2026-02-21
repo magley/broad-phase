@@ -26,6 +26,7 @@ class Collision
     IBroadPhaseImplementation[string] strategies;
     string[] strategy_names = [];
     int strategy_index = 0;
+    string strategy() => strategy_names[strategy_index];
 
     Entity[] entities;
     SDL_Renderer* rend;
@@ -72,8 +73,6 @@ class Collision
         }
     }
 
-    string strategy() => strategy_names[strategy_index];
-
     void update()
     {
         result = [];
@@ -85,5 +84,16 @@ class Collision
         }
 
         result = strategies[strategy].get();
+    }
+
+    PerfMeasure get_performance_measure()
+    {
+        if (strategy !in strategies)
+        {
+            writeln("Unknown strategy " ~ strategy);
+            return null;
+        }
+
+        return strategies[strategy].get_performance();
     }
 }

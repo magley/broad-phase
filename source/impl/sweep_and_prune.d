@@ -20,11 +20,14 @@ class SweepAndPrune : IBroadPhaseImplementation
     private SweepPoint[] points;
     // -------------------------- Result
     private CollisionResult[] result;
+    private PerfMeasure perf_measure;
+    PerfMeasure get_performance() => perf_measure;
 
     this(Entity[] entities, SDL_Renderer* rend)
     {
         this.entities = entities;
         this.rend = rend;
+        this.perf_measure = new PerfMeasure();
     }
 
     CollisionResult[] get()
@@ -32,8 +35,11 @@ class SweepAndPrune : IBroadPhaseImplementation
         result = [];
         points = [];
 
+        perf_measure.start("build_space");
         build_sorted_points();
+        perf_measure.start("build_result");
         sweep_and_prune();
+        perf_measure.end();
 
         return result;
     }

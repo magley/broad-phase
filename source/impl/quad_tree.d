@@ -19,6 +19,8 @@ class QuadTree : IBroadPhaseImplementation
     private QuadNode root = null;
     // -------------------------- Result
     private CollisionResult[] result;
+    private PerfMeasure perf_measure;
+    PerfMeasure get_performance() => perf_measure;
 
     this(Entity[] entities, SDL_Renderer* rend, box2 space, int capacity)
     {
@@ -26,6 +28,7 @@ class QuadTree : IBroadPhaseImplementation
         this.rend = rend;
         this.space = space;
         this.capacity = capacity;
+        this.perf_measure = new PerfMeasure();
     }
 
     CollisionResult[] get()
@@ -33,9 +36,13 @@ class QuadTree : IBroadPhaseImplementation
         root = null;
         result = [];
 
+        perf_measure.start("build_space");
         build_tree();
+        perf_measure.start("build_result");
         build_result();
+        perf_measure.start("draw");
         draw();
+        perf_measure.end();
 
         return result;
     }

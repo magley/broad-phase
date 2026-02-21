@@ -25,6 +25,8 @@ class BulkRTree : IBroadPhaseImplementation
     int hilbert_bits = 16;
     // -------------------------- Result
     private CollisionResult[] result;
+    private PerfMeasure perf_measure;
+    PerfMeasure get_performance() => perf_measure;
 
     enum Type
     {
@@ -39,6 +41,7 @@ class BulkRTree : IBroadPhaseImplementation
         this.rend = rend;
         this.capacity = capacity;
         this.type = type;
+        this.perf_measure = new PerfMeasure();
     }
 
     CollisionResult[] get()
@@ -46,10 +49,12 @@ class BulkRTree : IBroadPhaseImplementation
         root = null;
         result = [];
 
+        perf_measure.start("preprocess");
         size_t[] indexlist;
         for (size_t i = 0; i < entities.length; i++)
             indexlist ~= i;
 
+        perf_measure.start("build_space");
         final switch (type) with (Type)
         {
         case SortX:
@@ -63,8 +68,13 @@ class BulkRTree : IBroadPhaseImplementation
             break;
         }
 
+        perf_measure.start("build_result");
         build_result();
+
+        perf_measure.start("draw");
         draw();
+
+        perf_measure.end();
 
         return result;
     }
