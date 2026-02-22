@@ -52,42 +52,105 @@ class Benchmark
 
 void main()
 {
+	try
+	{
+		init_program();
+		run();
+	}
+	catch (Exception e)
+	{
+		writeln(e.msg);
+	}
+	finally
+	{
+		fini_program();
+
+		import std.file;
+
+		std.file.write("./result.json", benchmark.to_json());
+	}
+}
+
+SDL_Window* win;
+SDL_Renderer* rend;
+size_t nIter = 5;
+Benchmark benchmark;
+
+void init_program()
+{
 	SDL_Init(SDL_INIT_VIDEO);
-	SDL_Window* win = SDL_CreateWindow("Broad Phase Collision", 800, 600, SDL_WINDOW_OPENGL);
-	SDL_Renderer* rend = SDL_CreateRenderer(win, null);
+	win = SDL_CreateWindow("Broad Phase Collision", 800, 600, SDL_WINDOW_OPENGL);
+	rend = SDL_CreateRenderer(win, null);
 	SDL_SetRenderDrawBlendMode(rend, SDL_BLENDMODE_BLEND);
 
-	bool running = true;
+	benchmark = new Benchmark();
+}
 
-	Entity[] entities;
-	int N = 2000;
+void fini_program()
+{
+	SDL_DestroyRenderer(rend);
+	SDL_DestroyWindow(win);
+	SDL_Quit();
+}
 
-	entities = null;
-	entities.reserve(N);
-	for (int i = 0; i < N; i++)
+enum Placement
+{
+	Random,
+}
+
+struct BenchmarkState
+{
+	int entityCount;
+	Placement placement;
+	int strategyIndex;
+}
+
+void run()
+{
+	Placement[] placements = [Placement.Random];
+	int[] entityCounts = [
+		10, 100,
+		500, 1000, 5000,
+		//10_000, 50_000,
+		//100_000, 250_000, 500_000,
+		//1_000_000
+	];
+
+	foreach (Placement placement; placements)
 	{
-		entities ~= new Entity(
-			vec2(uniform!"[]"(0, 800 - 64), uniform!"[]"(0, 600 - 64)),
-			vec2(uniform!"[]"(12, 16), uniform!"[]"(12, 16)),
-		);
+		foreach (int entityCount; entityCounts)
+		{
+			for (int strategy = 0; strategy < 10; strategy++)
+			{
+				BenchmarkState st = BenchmarkState(entityCount, placement, strategy);
+				run(st);
+			}
+		}
 	}
+}
 
+void run(BenchmarkState state)
+{
+	Entity[] entities;
 	Input input;
-	Collision collision = new Collision(&input, entities, rend);
-	Benchmark benchmark = new Benchmark();
+	Collision collision = new Collision(&input, rend);
+
+	collision.strategy_index = state.strategyIndex;
 
 	StopWatch sw;
 	sw.start();
 
-	while (running)
+	for (int iter = 0; iter < nIter; iter++)
 	{
-		// Events
+		entities = spawn_entities(state, iter);
+		collision.initialize(entities);
+
 		SDL_Event ev;
 		while (SDL_PollEvent(&ev))
 		{
 			if (ev.type == SDL_EVENT_QUIT)
 			{
-				running = false;
+				throw new Exception("Program interrupted by user.");
 			}
 			else if (ev.type == SDL_EVENT_MOUSE_WHEEL)
 			{
@@ -97,28 +160,19 @@ void main()
 		SDL_SetRenderDrawColorFloat(rend, 1, 1, 1, 1.0);
 		SDL_RenderClear(rend);
 
-		input.update();
-
-		int dx = input.key_axis_press(SDL_SCANCODE_Q, SDL_SCANCODE_W);
-		if (dx != 0)
-		{
-			collision.move(dx);
-		}
-
-		// Render
-
 		foreach (Entity e; entities)
 		{
 			e.draw(rend);
 		}
-
-		// Update
 		sw.reset();
+
+		// ------------------------------------------------
+
 		collision.update();
 		CollisionResult[] cld_result = collision.result;
-
 		benchmark.push(collision.strategy, collision.get_performance_measure());
 
+		// ------------------------------------------------
 		long exec_ms = sw.peek().total!"msecs"();
 
 		foreach (size_t i, ref CollisionResult res; cld_result)
@@ -145,9 +199,12 @@ void main()
 
 		SDL_RenderPresent(rend);
 
+		// ------------------------------------------------
+
 		long fps = cast(long)(1000.0 / exec_ms);
 		SDL_SetWindowTitle(win,
-			format("type: %s, entities: %d, collisions: %d, fps: %03d, latency: %dms, ",
+			format("[%d/%d] type: %s, entities: %d, collisions: %d, fps: %03d, latency: %dms, ",
+				iter, nIter,
 				collision.strategy(),
 				entities.length,
 				cld_result.length,
@@ -156,14 +213,29 @@ void main()
 		).toStringz
 		);
 	}
+}
 
+Entity[] spawn_entities(BenchmarkState state, int iter)
+{
+	Entity[] entities;
+	const int N = state.entityCount;
+
+	entities.reserve(N);
+
+	Random rnd = Random(0 + N + iter);
+
+	final switch (state.placement) with (Placement)
 	{
-		import std.file;
-
-		std.file.write("./result.json", benchmark.to_json());
+	case Random:
+		for (int i = 0; i < N; i++)
+		{
+			entities ~= new Entity(
+				vec2(uniform!"[]"(0, 800 - 64, rnd), uniform!"[]"(0, 600 - 64, rnd)),
+				vec2(uniform!"[]"(12, 16, rnd), uniform!"[]"(12, 16, rnd)),
+			);
+		}
+		break;
 	}
 
-	SDL_DestroyRenderer(rend);
-	SDL_DestroyWindow(win);
-	SDL_Quit();
+	return entities;
 }

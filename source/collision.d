@@ -34,16 +34,15 @@ class Collision
 
     CollisionResult[] result;
 
-    this(Input* input, Entity[] entities, SDL_Renderer* rend)
+    this(Input* input, SDL_Renderer* rend)
     {
         this.input = input;
-        this.entities = entities;
         this.rend = rend;
-        initialize();
     }
 
-    private void initialize()
+    void initialize(Entity[] entities)
     {
+        this.entities = entities;
         strategies["00 None"] = new NoneImpl();
         strategies["01 Naive"] = new Naive(entities, rend);
         strategies["02 Grid Hash"] = new GridHash(entities, rend, vec2(50, 50));
