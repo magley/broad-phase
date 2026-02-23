@@ -74,7 +74,11 @@ void main()
 SDL_Window* win;
 SDL_Renderer* rend;
 size_t nIter = 5;
+Input _input;
 Benchmark benchmark;
+Collision cld;
+size_t progress = 0;
+size_t progressMax = 0;
 
 void init_program()
 {
@@ -82,6 +86,9 @@ void init_program()
 	win = SDL_CreateWindow("Broad Phase Collision", 800, 600, SDL_WINDOW_OPENGL);
 	rend = SDL_CreateRenderer(win, null);
 	SDL_SetRenderDrawBlendMode(rend, SDL_BLENDMODE_BLEND);
+
+	cld = new Collision(&_input, rend);
+	cld.initialize([]);
 
 	benchmark = new Benchmark();
 }
@@ -102,7 +109,7 @@ struct BenchmarkState
 {
 	int entityCount;
 	Placement placement;
-	int strategyIndex;
+	size_t strategyIndex;
 }
 
 void run()
@@ -115,15 +122,22 @@ void run()
 		//100_000, 250_000, 500_000,
 		//1_000_000
 	];
+	size_t[] strategies;
+	for (size_t i = 0; i < cld.strategies.length; i++)
+		strategies ~= i;
+
+	progress = 0;
+	progressMax = placements.length * entityCounts.length * strategies.length;
 
 	foreach (Placement placement; placements)
 	{
 		foreach (int entityCount; entityCounts)
 		{
-			for (int strategy = 0; strategy < 10; strategy++)
+			foreach (size_t strategy; strategies)
 			{
 				BenchmarkState st = BenchmarkState(entityCount, placement, strategy);
 				run(st);
+				progress++;
 			}
 		}
 	}
@@ -131,19 +145,15 @@ void run()
 
 void run(BenchmarkState state)
 {
-	Entity[] entities;
-	Input input;
-	Collision collision = new Collision(&input, rend);
-
-	collision.strategy_index = state.strategyIndex;
-
 	StopWatch sw;
 	sw.start();
 
+	cld.strategy_index = cast(int) state.strategyIndex;
+
 	for (int iter = 0; iter < nIter; iter++)
 	{
-		entities = spawn_entities(state, iter);
-		collision.initialize(entities);
+		Entity[] entities = spawn_entities(state, iter);
+		cld.initialize(entities);
 
 		SDL_Event ev;
 		while (SDL_PollEvent(&ev))
@@ -154,7 +164,7 @@ void run(BenchmarkState state)
 			}
 			else if (ev.type == SDL_EVENT_MOUSE_WHEEL)
 			{
-				input.wheel = ev.wheel.y;
+				_input.wheel = ev.wheel.y;
 			}
 		}
 		SDL_SetRenderDrawColorFloat(rend, 1, 1, 1, 1.0);
@@ -168,9 +178,9 @@ void run(BenchmarkState state)
 
 		// ------------------------------------------------
 
-		collision.update();
-		CollisionResult[] cld_result = collision.result;
-		benchmark.push(collision.strategy, collision.get_performance_measure());
+		cld.update();
+		CollisionResult[] cld_result = cld.result;
+		benchmark.push(cld.strategy, cld.get_performance_measure());
 
 		// ------------------------------------------------
 		long exec_ms = sw.peek().total!"msecs"();
@@ -203,9 +213,10 @@ void run(BenchmarkState state)
 
 		long fps = cast(long)(1000.0 / exec_ms);
 		SDL_SetWindowTitle(win,
-			format("[%d/%d] type: %s, entities: %d, collisions: %d, fps: %03d, latency: %dms, ",
-				iter, nIter,
-				collision.strategy(),
+			format("[%d/%d] [%d/%d] type: %s, entities: %d, collisions: %d, fps: %03d, latency: %dms, ",
+				progress + 1, progressMax,
+				iter + 1, nIter,
+				cld.strategy(),
 				entities.length,
 				cld_result.length,
 				fps,
