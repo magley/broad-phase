@@ -2,41 +2,31 @@ module benchmark.benchmark;
 import benchmark;
 
 import impl;
+import std.array;
+import std.format;
 import std.json;
 
-class Benchmark
+class BenchmarkResults
 {
-    PerfMeasure[][string] measures;
+    string[] lines;
 
-    void push(string strategy, PerfMeasure measure)
+    void placement(Placement p)
     {
-        measures[strategy] ~= measure;
+        lines ~= format("P %s", p);
     }
 
-    string to_json()
+    void entityCount(int N)
     {
-        JSONValue j;
+        lines ~= format("N %d", N);
+    }
 
-        foreach (string strategy, _; measures)
+    void run(string strategy, PerfMeasure run)
+    {
+        string s = format("r %s ", strategy.replace(' ', '_'));
+        foreach (string key, size_t val; run.data)
         {
-            j[strategy] = JSONValue.emptyArray;
+            s ~= format("%s:%d ", key, val);
         }
-
-        foreach (string strategy, PerfMeasure[] mli; measures)
-        {
-            JSONValue[] li;
-            foreach (PerfMeasure frame; mli)
-            {
-                JSONValue obj;
-                foreach (string task, ulong time; frame.data)
-                {
-                    obj[task] = time;
-                }
-                li ~= obj;
-            }
-            j[strategy] ~= li;
-        }
-
-        return j.toString();
+        lines ~= s;
     }
 }

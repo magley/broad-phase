@@ -33,7 +33,7 @@ class PerfMeasure
     void end()
     {
         sw.stop();
-        data[current] = sw.peek().total!"msecs"();
+        data[current] = sw.peek().total!"nsecs"();
         current = "";
     }
 }

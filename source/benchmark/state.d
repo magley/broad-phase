@@ -35,5 +35,5 @@ class BenchmarkState
     /// because every strategy should use the same placements.
     Entity[][] cached_entities;
     /// The benchmark object storing all previous results.
-    Benchmark benchmark;
+    BenchmarkResults benchmark;
 }

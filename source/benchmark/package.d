@@ -14,6 +14,13 @@ void start_benchmark()
     system_init(state);
     {
         begin_benchmarking(state);
+
+        {
+            import std.array;
+            import std.file;
+
+            write("./result.txt", state.benchmark.lines.join("\n"));
+        }
     }
     system_fini(state);
 }
@@ -29,7 +36,7 @@ private void system_init(BenchmarkState state)
     state.cld = new Collision(&state.input, state.rend);
     state.cld.initialize([]);
 
-    state.benchmark = new Benchmark();
+    state.benchmark = new BenchmarkResults();
 }
 
 private void system_fini(BenchmarkState state)

@@ -2,6 +2,7 @@ module benchmark.runner;
 import benchmark;
 import collision;
 import entity;
+import impl;
 import std.datetime.stopwatch;
 import std.format;
 import std.string;
@@ -16,7 +17,6 @@ struct SingleRunInputState
 
 void begin_benchmarking(BenchmarkState state)
 {
-
     Placement[] placements = [EnumMembers!(Placement)];
     int[] entityCounts = [10, 100, 500, 1000, 2000];
     size_t[] strategies;
@@ -28,8 +28,11 @@ void begin_benchmarking(BenchmarkState state)
 
     foreach (Placement placement; placements)
     {
+        state.benchmark.placement(placement);
         foreach (int entityCount; entityCounts)
         {
+            state.benchmark.entityCount(entityCount);
+
             state.cached_entities = [];
             for (int i = 0; i < state.nIter; i++)
             {
@@ -39,13 +42,18 @@ void begin_benchmarking(BenchmarkState state)
             foreach (size_t strategy; strategies)
             {
                 SingleRunInputState input = SingleRunInputState(entityCount, placement, strategy);
-                single_run(state, input);
+                PerfMeasure[] result = single_run(state, input);
+
+                foreach (ref PerfMeasure p; result)
+                {
+                    state.benchmark.run(state.cld.strategy_names[strategy], p);
+                }
             }
         }
     }
 }
 
-private void single_run(BenchmarkState state, SingleRunInputState input_)
+private PerfMeasure[] single_run(BenchmarkState state, SingleRunInputState input_)
 {
     // TODO: Headless mode.
 
@@ -56,8 +64,10 @@ private void single_run(BenchmarkState state, SingleRunInputState input_)
     const int nIter = cast(int) state.nIter;
     Entity[][] cached_entities = state.cached_entities;
     SDL_Renderer* rend = state.rend;
-    Benchmark benchmark = state.benchmark;
+    BenchmarkResults benchmark = state.benchmark;
     //
+
+    PerfMeasure[] result;
 
     StopWatch sw;
     sw.start();
@@ -93,7 +103,7 @@ private void single_run(BenchmarkState state, SingleRunInputState input_)
 
         cld.update();
         CollisionResult[] cld_result = cld.result;
-        benchmark.push(cld.strategy, cld.get_performance_measure());
+        result ~= cld.get_performance_measure();
 
         // ------------------------------------------------
         long exec_ms = sw.peek().total!"msecs"();
@@ -121,4 +131,6 @@ private void single_run(BenchmarkState state, SingleRunInputState input_)
         ).toStringz
         );
     }
+
+    return result;
 }
