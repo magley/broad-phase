@@ -5,6 +5,7 @@ import input;
 import rect;
 import std.datetime.stopwatch;
 import std.format;
+import std.math;
 import std.random;
 import std.stdio;
 import std.string;
@@ -79,6 +80,7 @@ Benchmark benchmark;
 Collision cld;
 size_t progress = 0;
 size_t progressMax = 0;
+Entity[][] cached_entities;
 
 void init_program()
 {
@@ -103,6 +105,10 @@ void fini_program()
 enum Placement
 {
 	Random,
+	RandomLargeBoxes,
+	XLine,
+	YLine,
+	TrueUniform
 }
 
 struct BenchmarkState
@@ -114,10 +120,13 @@ struct BenchmarkState
 
 void run()
 {
-	Placement[] placements = [Placement.Random];
+	import std.traits;
+
+	Placement[] placements = [EnumMembers!(Placement)];
 	int[] entityCounts = [
 		10, 100,
-		500, 1000, 5000,
+		500, 1000,
+		2000, //5000,
 		//10_000, 50_000,
 		//100_000, 250_000, 500_000,
 		//1_000_000
@@ -127,17 +136,22 @@ void run()
 		strategies ~= i;
 
 	progress = 0;
-	progressMax = placements.length * entityCounts.length * strategies.length;
+	progressMax = placements.length * entityCounts.length * strategies.length * nIter;
 
 	foreach (Placement placement; placements)
 	{
 		foreach (int entityCount; entityCounts)
 		{
+			cached_entities = [];
+			for (int i = 0; i < nIter; i++)
+			{
+				cached_entities ~= spawn_entities(entityCount, placement, i);
+			}
+
 			foreach (size_t strategy; strategies)
 			{
 				BenchmarkState st = BenchmarkState(entityCount, placement, strategy);
 				run(st);
-				progress++;
 			}
 		}
 	}
@@ -152,7 +166,7 @@ void run(BenchmarkState state)
 
 	for (int iter = 0; iter < nIter; iter++)
 	{
-		Entity[] entities = spawn_entities(state, iter);
+		Entity[] entities = cached_entities[iter];
 		cld.initialize(entities);
 
 		SDL_Event ev;
@@ -211,11 +225,14 @@ void run(BenchmarkState state)
 
 		// ------------------------------------------------
 
+		progress++;
+
 		long fps = cast(long)(1000.0 / exec_ms);
 		SDL_SetWindowTitle(win,
-			format("[%d/%d] [%d/%d] type: %s, entities: %d, collisions: %d, fps: %03d, latency: %dms, ",
+			format("[%d/%d] [%d/%d] T: %s, P: %s,  N: %d, C: %d,  fps: %03d, latency: %dms",
 				progress + 1, progressMax,
 				iter + 1, nIter,
+				state.placement,
 				cld.strategy(),
 				entities.length,
 				cld_result.length,
@@ -226,26 +243,71 @@ void run(BenchmarkState state)
 	}
 }
 
-Entity[] spawn_entities(BenchmarkState state, int iter)
+Entity[] spawn_entities(int count, Placement placement, int iter)
 {
 	Entity[] entities;
-	const int N = state.entityCount;
+	const int N = count;
 
 	entities.reserve(N);
 
 	Random rnd = Random(0 + N + iter);
 
-	final switch (state.placement) with (Placement)
+	final switch (placement) with (Placement)
 	{
 	case Random:
 		for (int i = 0; i < N; i++)
 		{
 			entities ~= new Entity(
-				vec2(uniform!"[]"(0, 800 - 64, rnd), uniform!"[]"(0, 600 - 64, rnd)),
+				vec2(uniform!"[]"(0, 800 - 16, rnd), uniform!"[]"(0, 600 - 16, rnd)),
 				vec2(uniform!"[]"(12, 16, rnd), uniform!"[]"(12, 16, rnd)),
 			);
 		}
 		break;
+	case RandomLargeBoxes:
+		for (int i = 0; i < N; i++)
+		{
+			entities ~= new Entity(
+				vec2(uniform!"[]"(0, 800 - 100, rnd), uniform!"[]"(0, 600 - 100, rnd)),
+				vec2(uniform!"[]"(50, 100, rnd), uniform!"[]"(50, 100, rnd)),
+			);
+		}
+		break;
+	case XLine:
+		int x = 800 / 2 - 300 / 2;
+		for (int i = 0; i < N; i++)
+		{
+			float p = cast(float) i / N;
+			entities ~= new Entity(
+				vec2(x, p * ((600 - 20) - 0) + 0),
+				vec2(uniform!"[]"(30, 300, rnd), uniform!"[]"(10, 20, rnd)),
+			);
+		}
+		break;
+	case YLine:
+		int y = 600 / 2 - 300 / 2;
+		for (int i = 0; i < N; i++)
+		{
+			float p = cast(float) i / N;
+			entities ~= new Entity(
+				vec2(p * ((800 - 20) - 0) + 0, y),
+				vec2(uniform!"[]"(10, 20, rnd), uniform!"[]"(30, 300, rnd)),
+			);
+		}
+		break;
+	case TrueUniform:
+		const float Nf = cast(float) N;
+		const int nRow = cast(int)(sqrt(Nf) + sqrt(sqrt(Nf)) * iter);
+		const int nPerRow = N / nRow;
+		const int w = 800 / nPerRow;
+		const int h = 600 / nRow;
+		const vec2 entitySize = vec2(w, h) + vec2(1, 1) * 10;
+		for (int y = 0; y < nRow; y++)
+		{
+			for (int x = 0; x < nPerRow; x++)
+			{
+				entities ~= new Entity(vec2(x * w, y * h), entitySize);
+			}
+		}
 	}
 
 	return entities;
