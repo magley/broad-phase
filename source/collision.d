@@ -19,6 +19,28 @@ import vendor.sdl;
 struct CollisionResult
 {
     Entity e1, e2;
+
+    void draw(SDL_Renderer* rend)
+    {
+        float r = e1.bbox.left / 800.0f;
+        float g = e2.bbox.top / 600.0f;
+        float b = (e1.bbox.w + e2.bbox.h) / 64.0f;
+
+        SDL_SetRenderDrawColorFloat(rend, r, g, b, 0.1);
+
+        SDL_FRect rect;
+        rect.x = e1.bbox.x;
+        rect.y = e1.bbox.y;
+        rect.w = e1.bbox.w;
+        rect.h = e1.bbox.h;
+        SDL_RenderFillRect(rend, &rect);
+        SDL_FRect rect2;
+        rect2.x = e2.bbox.x;
+        rect2.y = e2.bbox.y;
+        rect2.w = e2.bbox.w;
+        rect2.h = e2.bbox.h;
+        SDL_RenderFillRect(rend, &rect2);
+    }
 }
 
 class Collision
