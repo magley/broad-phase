@@ -1,4 +1,6 @@
 from collections import defaultdict
+import matplotlib.pyplot as plt
+
 
 def parse_file(fname: str):
     lines = []
@@ -42,4 +44,29 @@ def parse_file(fname: str):
 
 
 parsed = parse_file("./result.txt")
-print(parsed)
+for placement in parsed.keys():
+    entity_counts = []
+    time = {}
+    
+    for ec, measures in parsed[placement].items():
+        entity_counts.append(ec)
+        
+        for algorithm, measure_times in measures.items():
+            total = 0
+            for k, v in measure_times.items():
+                total += v
+            if algorithm not in time: time[algorithm] = []
+            
+            ms = int(total / 1_000_000)
+            time[algorithm].append(ms)
+            
+    
+            
+    for name, values in time.items():
+        plt.plot(entity_counts, values, label=name)
+   
+    plt.xlabel("Number of entities")
+    plt.ylabel("Time (ms)")     
+    plt.title("Cumulative time: " + placement)
+    plt.legend()
+    plt.show()
