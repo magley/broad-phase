@@ -19,7 +19,7 @@ void start_benchmark()
             import std.array;
             import std.file;
 
-            write("./result.txt", state.benchmark.lines.join("\n"));
+            write("./benchmark/result.txt", state.benchmark.lines.join("\n"));
         }
     }
     system_fini(state);
