@@ -1,11 +1,11 @@
 {
 	"authors": [
-		"aaa"
+		"magley"
 	],
-	"copyright": "Copyright © 2026, aaa",
+	"copyright": "Copyright © 2026, magley",
 	"dependencies": {},
-	"description": "A minimal D application.",
-	"license": "proprietary",
+	"description": "Implementation of several broad phase algorithms and data structures.",
+	"license": "BSD 2-clause",
 	"name": "broad-phase-test",
 	"targetPath": "./bin",
 	"libs": ["./lib/SDL3", "bcrypt"]

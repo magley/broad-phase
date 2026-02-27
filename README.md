@@ -67,3 +67,6 @@ like _brute force_ and _top down r-tree_ perform poorly as the number of
 entities and true positive collisions rises. The entry point to the benchmark is
 in `benchmark/package.d`. You can change the output file path there.
 
+## License
+
+Licensed under the BSD 2-Clause license. See [LICENSE](./LICENSE) for more info.
