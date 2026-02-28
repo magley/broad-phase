@@ -20,6 +20,12 @@ class BenchmarkState
     /// test can be averaged.
     size_t nIter = 5;
 
+    // --------------------- Program Input -------------------- \\
+
+    /// Is the benchmark run in headless mode (no window or rendering)?
+    /// This is set through a command line argument.
+    bool headless = false;
+
     // ------------------------- State ------------------------ \\
 
     /// Current progress.
@@ -36,4 +42,9 @@ class BenchmarkState
     Entity[][] cached_entities;
     /// The benchmark object storing all previous results.
     BenchmarkResults benchmark;
+
+    this(bool headless)
+    {
+        this.headless = headless;
+    }
 }

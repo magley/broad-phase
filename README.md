@@ -32,6 +32,10 @@ dub build
 dub run
 ```
 
+You can run the benchmark in headless mode by passing the `--headless` flag.
+Otherwise, the program will use SDL to spawn a window and render the collision
+world for each test. Note that non-headless mode carries a performance penalty. 
+
 To plot the results after running the benchmark, you will need matplotlib"
 
 ```sh

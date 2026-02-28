@@ -1,6 +1,12 @@
 import benchmark;
 
-void main()
+void main(string[] argv)
 {
-	start_benchmark();
+	bool headless = false;
+	if (argv.length > 1 && argv[1] == "--headless")
+	{
+		headless = true;
+	}
+
+	start_benchmark(headless);
 }

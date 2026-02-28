@@ -78,25 +78,29 @@ private PerfMeasure[] single_run(BenchmarkState state, SingleRunInputState input
         Entity[] entities = cached_entities[iter];
         cld.initialize(entities);
 
-        SDL_Event ev;
-        while (SDL_PollEvent(&ev))
+        if (!state.headless)
         {
-            if (ev.type == SDL_EVENT_QUIT)
+            SDL_Event ev;
+            while (SDL_PollEvent(&ev))
             {
-                throw new Exception("Program interrupted by user.");
+                if (ev.type == SDL_EVENT_QUIT)
+                {
+                    throw new Exception("Program interrupted by user.");
+                }
+                else if (ev.type == SDL_EVENT_MOUSE_WHEEL)
+                {
+                    state.input.wheel = ev.wheel.y;
+                }
             }
-            else if (ev.type == SDL_EVENT_MOUSE_WHEEL)
-            {
-                state.input.wheel = ev.wheel.y;
-            }
-        }
-        SDL_SetRenderDrawColorFloat(rend, 1, 1, 1, 1.0);
-        SDL_RenderClear(rend);
+            SDL_SetRenderDrawColorFloat(rend, 1, 1, 1, 1.0);
+            SDL_RenderClear(rend);
 
-        foreach (Entity e; entities)
-        {
-            e.draw(rend);
+            foreach (Entity e; entities)
+            {
+                e.draw(rend);
+            }
         }
+
         sw.reset();
 
         // ------------------------------------------------
@@ -108,28 +112,34 @@ private PerfMeasure[] single_run(BenchmarkState state, SingleRunInputState input
         // ------------------------------------------------
         long exec_ms = sw.peek().total!"msecs"();
 
-        foreach (ref CollisionResult res; cld_result)
-            res.draw(rend);
+        if (!state.headless)
+        {
+            foreach (ref CollisionResult res; cld_result)
+                res.draw(rend);
 
-        SDL_RenderPresent(rend);
+            SDL_RenderPresent(rend);
+        }
 
         // ------------------------------------------------
 
         state.progress++;
 
-        long fps = cast(long)(1000.0 / exec_ms);
-        SDL_SetWindowTitle(state.win,
-            format("[%d/%d] [%d/%d] T: %s, P: %s,  N: %d, C: %d,  fps: %03d, latency: %dms",
-                state.progress + 1, state.progressMax,
-                iter + 1, nIter,
-                input_.placement,
-                cld.strategy(),
-                entities.length,
-                cld_result.length,
-                fps,
-                exec_ms
-        ).toStringz
-        );
+        if (!state.headless)
+        {
+            long fps = cast(long)(1000.0 / exec_ms);
+            SDL_SetWindowTitle(state.win,
+                format("[%d/%d] [%d/%d] T: %s, P: %s,  N: %d, C: %d,  fps: %03d, latency: %dms",
+                    state.progress + 1, state.progressMax,
+                    iter + 1, nIter,
+                    input_.placement,
+                    cld.strategy(),
+                    entities.length,
+                    cld_result.length,
+                    fps,
+                    exec_ms
+            ).toStringz
+            );
+        }
     }
 
     return result;

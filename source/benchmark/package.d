@@ -8,9 +8,9 @@ public import benchmark.state;
 import collision;
 import vendor.sdl;
 
-void start_benchmark()
+void start_benchmark(bool headless)
 {
-    BenchmarkState state = new BenchmarkState();
+    BenchmarkState state = new BenchmarkState(headless);
     system_init(state);
     {
         begin_benchmarking(state);
@@ -27,11 +27,14 @@ void start_benchmark()
 
 private void system_init(BenchmarkState state)
 {
-    SDL_Init(SDL_INIT_VIDEO);
+    if (!state.headless)
+    {
+        SDL_Init(SDL_INIT_VIDEO);
 
-    state.win = SDL_CreateWindow("", 800, 600, SDL_WINDOW_OPENGL);
-    state.rend = SDL_CreateRenderer(state.win, null);
-    SDL_SetRenderDrawBlendMode(state.rend, SDL_BLENDMODE_BLEND);
+        state.win = SDL_CreateWindow("", 800, 600, SDL_WINDOW_OPENGL);
+        state.rend = SDL_CreateRenderer(state.win, null);
+        SDL_SetRenderDrawBlendMode(state.rend, SDL_BLENDMODE_BLEND);
+    }
 
     state.cld = new Collision(&state.input, state.rend);
     state.cld.initialize([]);
