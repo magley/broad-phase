@@ -58,7 +58,7 @@ reference to context objects like the list of entities and the SDL renderer
 handle.<BR/>
 Normally this is done through global variables, but the focus of this project are the algorithm implementations, so as long as your entities are stored as contiguous arrays (directly or through pointers) and those entities have a position and shape in the game world, these implementations can also work.<BR/>
 Therefore, I have unintentionally kept the academic tradition of the
-non-essential code being written only to be compiled by a machine, not to read
+non-essential code being written only to be compiled by a machine, not to be read
 by a human.
 
 If you wish to alter the test cases, start wtih `benchmark/runner.d` and adjust
