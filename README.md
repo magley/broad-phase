@@ -1,13 +1,12 @@
-This repository contains implementations of several spatial grouping/broad phase
-collision detection algorithms and data structures.
+This repository contains implementations of several spatial grouping/broad phase collision detection algorithms and data structures.
 
-Read my [**blogpost article**](https://magley.github.io/posts/0002_broadphase/) for
-insight in the theoretical background of these algorithms as well as a benchmark
-analysis.  
+I've written a [blogpost article](https://magley.github.io/blog/0003_broad_phase_algorithms.html) about
+this, containing insight in the theoretical background of these algorithms as
+well as an analysis of the benchmark results.
 
 ![screenshot](./docs/screenshot.png)
 
-Featuring these broad phase algorithms:
+The project features these broad phase algorithms:
 - naive
 - sort and sweep
 - grid hashing
@@ -18,6 +17,10 @@ Featuring these broad phase algorithms:
     - Sort-Tile-Recusrive
     - Hilbert-Curve
 - K-d tree
+
+All bodies are static and have rectangular bounding boxes (alternatively, the
+project considers rectangular convex hulls and narrow phase collision is
+skipped).
 
 The windowing and visualization is powered by SDL3. I've bundled the neccessary
 SDL binaries for Windows because dependency management in Windows is _still_
@@ -36,7 +39,7 @@ You can run the benchmark in headless mode by passing the `--headless` flag.
 Otherwise, the program will use SDL to spawn a window and render the collision
 world for each test. Note that non-headless mode carries a performance penalty. 
 
-To plot the results after running the benchmark, you will need matplotlib"
+To plot the results after running the benchmark, you will need matplotlib.
 
 ```sh
 python ./benchmark/analyze.py
@@ -59,8 +62,8 @@ The code structure is as follows:
 Each of the implementations is a class implementing an interface for fetching
 all collisions based on its current state. Each of these also expects a
 reference to context objects like the list of entities and the SDL renderer
-handle.<BR/>
-Normally this is done through global variables, but the focus of this project are the algorithm implementations, so as long as your entities are stored as contiguous arrays (directly or through pointers) and those entities have a position and shape in the game world, these implementations can also work.<BR/>
+handle.<br/>
+Normally this is done through global variables, but the focus of this project are the algorithm implementations, so as long as your entities are stored as contiguous arrays (directly or through pointers) and those entities have a position and shape in the game world, these implementations can also work.<br/>
 Therefore, I have unintentionally kept the academic tradition of the
 non-essential code being written only to be compiled by a machine, not to be read
 by a human.
